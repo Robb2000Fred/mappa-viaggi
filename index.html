@@ -641,7 +641,23 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   function syncMode() { const sel = document.querySelector("#panel .tendina select"); if (sel && sel.value !== S.mode) { sel.value = S.mode; sel.dispatchEvent(new Event("change", { bubbles: true })); } }
 
   /* ---------- Barra in basso (telefono) ---------- */
+  // Quello che stai facendo (tappe, percorso, nome, ricerca) resta salvato: se il telefono ricarica la pagina la ritrovi com'era.
+  function saveDraft() {
+    LS.set("mappa-bozza", { pts: S.pts.map(p => ({ lat: p.lat, lon: p.lon, name: p.name, auto: !!p.auto })), route: S.route, savedId: S.savedId,
+      draftName: S.draftName, pendingDate: S.pendingDate, q: ($("q") && $("q").value) || "" });
+  }
+  function loadDraft() {
+    const d = LS.get("mappa-bozza", null); if (!d || typeof d !== "object") return;
+    const okPt = p => p && Number.isFinite(p.lat) && Number.isFinite(p.lon) && Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180;
+    if (Array.isArray(d.pts) && d.pts.length <= 26 && d.pts.every(okPt)) S.pts = d.pts.map(p => ({ lat: p.lat, lon: p.lon, name: String(p.name ?? ""), auto: !!p.auto }));
+    if (d.route && Array.isArray(d.route.coords) && d.route.coords.length >= 2 && S.pts.length >= 2) S.route = { coords: d.route.coords, distance: d.route.distance, duration: d.route.duration };
+    S.savedId = d.savedId && S.routes.find(x => x.id === d.savedId) ? d.savedId : null;
+    S.draftName = typeof d.draftName === "string" ? d.draftName : null;
+    S.pendingDate = isoOk(d.pendingDate) ? d.pendingDate : "";
+    if (typeof d.q === "string" && d.q) { $("q").value = d.q; $("q-clear").hidden = false; }
+  }
   function drawBar(msg) {
+    saveDraft();
     if (!isMobile()) return;
     const n = S.pts.length, chips = [];
     for (let i = 0; i < n; i++) {
@@ -796,6 +812,12 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     const h = location.hash.slice(1), i = h.indexOf("="); if (i < 0) return;
     const k = h.slice(0, i), parts = h.slice(i + 1).split("|");
     const dec = v => { try { return decodeURIComponent(v); } catch { return v; } };
+    if (k === "q") { // "#q=Grotta di Nettuno": cerco quel nome; tappe e percorso in corso non si toccano
+      const text = dec(h.slice(i + 1)).trim().slice(0, 200); history.replaceState(null, "", location.pathname + location.search);
+      if (!text) return;
+      $("q").value = text; $("q-clear").hidden = false; saveDraft();
+      if (isMobile()) openSheet("Cerca"); search(text); return;
+    }
     const num = v => { const n = Number(v); return v !== "" && Number.isFinite(n) && Math.abs(n) <= 180 ? n : null; };
     if (k === "r" && parts.length >= 5) {
       const [mode, name, date] = parts.slice(0, 3).map(dec);
@@ -833,7 +855,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (el.id === "bar-menu") { openSheet("Mappa Viaggi"); return; }
     if (el.id === "sheet-close") { closeSheet(); return; }
     if (el.classList.contains("res")) { const x = $("res")._rows[Number(el.dataset.i)]; const p = { lat: +Number(x.lat).toFixed(5), lon: +Number(x.lon).toFixed(5), name: shortName(x) }; $("res").hidden = true; map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15)); setPick(p); return; }
-    if (el.id === "q-clear") { $("q").value = ""; $("res").hidden = true; el.hidden = true; $("q").focus(); return; }
+    if (el.id === "q-clear") { $("q").value = ""; $("res").hidden = true; el.hidden = true; saveDraft(); $("q").focus(); return; }
     if (el.id === "pick-stop") { setStop(S.slot ?? S.pts.length, S.pick); return; }
     if (el.id === "pick-fav") { const p = S.pick; if (p.stop !== undefined) S.pts.splice(p.stop, 1); S.favForm = { lat: p.lat, lon: p.lon, name: p.auto ? "" : p.name, icon: "stella", color: COLORS[0] }; S.pick = null; drawPick(); if (p.stop !== undefined) { S.route = null; S.savedId = null; layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); } drawFavForm(); return; }
     if (el.id === "pick-del") { clearStop(S.pick.stop); return; }
@@ -871,7 +893,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (el.id === "fs") { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { toast("Schermo intero non disponibile qui"); } }
   });
   document.addEventListener("fullscreenchange", () => setTimeout(() => map.invalidateSize(), 150));
-  document.addEventListener("input", e => { if (e.target.id === "q") { $("q-clear").hidden = !e.target.value; suggest(e.target.value); } if (e.target.id === "fname" && S.favForm) S.favForm.name = e.target.value; if (e.target.id === "rname") S.draftName = e.target.value; });
+  document.addEventListener("input", e => { if (e.target.id === "q") { $("q-clear").hidden = !e.target.value; suggest(e.target.value); saveDraft(); } if (e.target.id === "fname" && S.favForm) S.favForm.name = e.target.value; if (e.target.id === "rname") S.draftName = e.target.value; });
   document.addEventListener("keydown", e => {
     if (e.target.id === "q" && e.key === "Enter") { e.preventDefault(); clearTimeout(typeTimer); search(e.target.value); }
     else if (e.target.id === "q" && e.key === "Escape") { $("res").hidden = true; }
@@ -908,7 +930,9 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   { const m = merge({ routes: S.routes, favs: S.favs, del: S.del }, {}); S.routes = m.routes; S.favs = m.favs; S.del = m.del; } // le cancellazioni ricordate valgono anche sui dati letti dal disco
   $("mezzo").value = S.mode; tendine($("panel")); if (!persist()) toast(NO_SAVE); placePick();
-  drawStops(); drawRoutes(); drawFavs(); drawSaved(); drawResult(); drawSync(); drawBar();
+  loadDraft();
+  drawStops(); drawEnds(); drawRoute(false); drawRoutes(); drawFavs(); drawSaved(); drawResult(); drawSync(); drawBar();
+  if (S.pts.length >= 2 && !S.route) routeIfReady(); // la pagina si era chiusa mentre calcolava
   applyHash(); pull();
 })();
 </script>
