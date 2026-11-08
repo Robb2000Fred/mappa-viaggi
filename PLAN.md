@@ -146,3 +146,12 @@ Autorizzate da Fred l'8 nov 2026 ("Sì, correggi"). Costruttore: Claude (session
 | extra | `drawSaved` non disegna il tracciato di un percorso senza `coords` (dato rovinato) invece di andare in errore. | Percorso senza coords in memoria → nessun errore in console. |
 
 Prove eseguite dal coordinatore l'8 nov 2026 nel browser integrato (localhost:8790): tutte quelle della colonna "Come si prova" marcate come prova, con esito positivo. Non provati: localStorage pieno (MV-04/05), service worker con migrazione interrotta (MV-06), lettore di schermo (MV-09).
+
+### Round 3, dopo l'ispezione 3 (Codex, 4 rilievi R3-01..R3-04, tutti accettati)
+
+| # | Cosa cambia | Come si prova |
+|---|---|---|
+| R3-01 | `setCodice()` restituisce true/false; "Codice creato" e "Dispositivo scollegato" compaiono solo se la scrittura è riuscita. | Lettura del codice. |
+| R3-02 | `readDisk()` legge `mappa-dati` E le chiavi vecchie se esistono ancora (una scheda rimasta aperta con la versione precedente le scrive): si accostano e `merge()` toglie i doppioni all'avvio e nell'evento `storage`, che ora ascolta anche le chiavi vecchie. | Avvio con `mappa-dati` + `mappa-percorsi` scritto "dopo" → entrambi i percorsi presenti, chiavi vecchie tolte. |
+| R3-03 | Le chiavi vecchie si tolgono dentro `persist()` al primo salvataggio riuscito, quando capita (non solo all'avvio); se il salvataggio all'avvio fallisce compare NO_SAVE e le chiavi vecchie restano. Respinto: staging in IndexedDB (sproporzionato: i dati sono pochi KB contro 5 MB di quota). | Come sopra; quota piena non simulata. |
+| R3-04 | `openRoute()` di un percorso senza tracciato apre le tappe come bozza e ricalcola (`routeIfReady`); `drawRoute()` non chiama Leaflet senza almeno 2 coordinate. | "Apri" su un percorso senza `coords` → tappe A/B, ricalcolo OSRM, nessun errore in console. |

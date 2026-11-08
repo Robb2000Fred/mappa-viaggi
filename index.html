@@ -288,7 +288,16 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   };
   // I dati stanno su UNA chiave sola (mappa-dati): un salvataggio o riesce tutto o niente. Le tre chiavi vecchie si leggono solo finché non c'è quella nuova.
   const OLD_KEYS = ["mappa-percorsi", "mappa-preferiti", "mappa-del"];
-  const readDisk = () => { const d = LS.get("mappa-dati", null); return d && typeof d === "object" ? { routes: Array.isArray(d.routes) ? d.routes : [], favs: Array.isArray(d.favs) ? d.favs : [], del: d.del && typeof d.del === "object" ? d.del : {} } : { routes: LS.get(OLD_KEYS[0], []), favs: LS.get(OLD_KEYS[1], []), del: LS.get(OLD_KEYS[2], {}) }; };
+  const readLegacy = () => ({ routes: LS.get(OLD_KEYS[0], []), favs: LS.get(OLD_KEYS[1], []), del: LS.get(OLD_KEYS[2], {}) });
+  const hasLegacy = () => { try { return OLD_KEYS.some(k => localStorage.getItem(k) !== null); } catch { return false; } };
+  // Dati su disco: mappa-dati UNITA alle chiavi vecchie se esistono ancora (una scheda rimasta aperta con la versione precedente le scrive ancora).
+  // (qui si accostano soltanto: i doppioni per id li toglie merge() all'avvio e nell'evento storage; merge non è ancora pronta a questo punto del file)
+  const readDisk = () => {
+    const d = LS.get("mappa-dati", null), nw = d && typeof d === "object" ? { routes: Array.isArray(d.routes) ? d.routes : [], favs: Array.isArray(d.favs) ? d.favs : [], del: d.del && typeof d.del === "object" ? d.del : {} } : null;
+    if (!nw) return readLegacy(); if (!hasLegacy()) return nw;
+    const lg = readLegacy(), del = { ...lg.del }; for (const [k, v] of Object.entries(nw.del)) if (!del[k] || v > del[k]) del[k] = v;
+    return { routes: [...nw.routes, ...lg.routes], favs: [...nw.favs, ...lg.favs], del };
+  };
   const MODES = {
     piedi: { label: "A piedi", osrm: "routed-foot/route/v1/foot" },
     bici: { label: "In bici", osrm: "routed-bike/route/v1/bike" },
@@ -340,7 +349,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     routes: D0.routes.map(upgrade), favs: D0.favs.map(upgrade), del: D0.del,
     pick: null, favForm: null, cal: null, codice: LS.get("mappa-codice", ""), syncState: "", syncAt: "" };
   if (!MODES[S.mode]) S.mode = "piedi";
-  const persist = () => { const ok = LS.set("mappa-dati", { v: 1, routes: S.routes, favs: S.favs, del: S.del }); dirty = true; return ok; };
+  const persist = () => { const ok = LS.set("mappa-dati", { v: 1, routes: S.routes, favs: S.favs, del: S.del }); dirty = true; if (ok && hasLegacy()) OLD_KEYS.forEach(LS.del); return ok; }; // le chiavi vecchie se ne vanno solo dopo un salvataggio riuscito
   const NO_SAVE = "Non salvato sul dispositivo: la memoria del browser è piena o bloccata";
 
   let toastTimer;
@@ -563,7 +572,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     } catch { if (t === routeToken) { toast("Il calcolo del percorso non risponde: riprova tra poco"); drawResult(); drawBar(); } }
   }
   function drawRoute(fit) {
-    layers.route.clearLayers(); if (!S.route) return;
+    layers.route.clearLayers(); if (!S.route || !Array.isArray(S.route.coords) || S.route.coords.length < 2) return;
     L.polyline(S.route.coords, { color: "#fff", weight: 10, opacity: .9 }).addTo(layers.route);
     L.polyline(S.route.coords, { color: "#B5634D", weight: 6 }).addTo(layers.route);
     if (fit) map.fitBounds(L.latLngBounds(S.route.coords), { padding: [40, 40] });
@@ -615,8 +624,10 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   function openRoute(it) {
     S.mode = it.mode; syncMode(); S.pts = it.pts.map(p => ({ ...p })); S.slot = null; S.savedId = it.id; S.draftName = null; S.pendingDate = "";
     routeToken++; S.pick = null; drawPick();
-    S.route = { coords: it.coords, distance: it.distance, duration: it.duration };
+    const okCoords = Array.isArray(it.coords) && it.coords.length >= 2;
+    S.route = okCoords ? { coords: it.coords, distance: it.distance, duration: it.duration } : null;
     drawStops(); drawEnds(); drawRoute(true); drawResult(); drawRoutes(); drawSaved(); drawBar();
+    if (!okCoords) routeIfReady(); // tracciato mancante (dato rovinato): lo ricalcolo
     if (isMobile()) closeSheet();
   }
   function newRoute() { routeToken++; S.pts = []; S.route = null; S.savedId = null; S.draftName = null; S.pendingDate = ""; S.slot = null; S.pick = null; drawPick(); layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); if (isMobile()) closeSheet(); toast("Tocca un punto sulla mappa: diventa A"); }
@@ -770,8 +781,9 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
       <div class="row">${st}<button class="btn small" type="button" id="sync-copy">Copia</button><button class="btn small" type="button" id="sync-now">Aggiorna</button><button class="btn small danger" type="button" id="sync-off">Scollega</button></div></div>`;
   }
   function setCodice(c) {
-    if (!(c ? LS.set("mappa-codice", c) : LS.del("mappa-codice"))) { toast(c ? "Codice non salvato sul dispositivo: la memoria del browser è piena o bloccata" : "Non riesco a scollegare: la memoria del browser è bloccata"); return; }
+    if (!(c ? LS.set("mappa-codice", c) : LS.del("mappa-codice"))) { toast(c ? "Codice non salvato sul dispositivo: la memoria del browser è piena o bloccata" : "Non riesco a scollegare: la memoria del browser è bloccata"); return false; }
     conn++; clearTimeout(pushTimer); S.codice = c; S.syncState = ""; S.syncAt = ""; drawSync(); if (c) { dirty = true; pull(); }
+    return true;
   }
 
   /* ---------- Link e copia ---------- */
@@ -851,11 +863,11 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
       const id = el.dataset.delF, keep = S.favs; S.favs = S.favs.filter(x => x.id !== id); S.del[id] = now();
       if (!persist()) { S.favs = keep; delete S.del[id]; drawFavs(); toast(NO_SAVE); return; }
       push(); drawFavs(); toast("Posto eliminato"); return; }
-    if (el.id === "sync-new") { const c = makeCodice(); setCodice(c); toast("Codice creato: scrivilo sugli altri dispositivi"); return; }
+    if (el.id === "sync-new") { if (setCodice(makeCodice())) toast("Codice creato: scrivilo sugli altri dispositivi"); return; }
     if (el.id === "sync-join") { const c = $("sync-in").value.trim().toLowerCase(); if (c.length < 20) { toast("Il codice è di 4 gruppi da 5 lettere"); $("sync-in").focus(); return; } setCodice(c); return; }
     if (el.id === "sync-copy") { copy(S.codice); return; }
     if (el.id === "sync-now") { pull(); return; }
-    if (el.id === "sync-off") { if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Sì, scollega"; return; } setCodice(""); toast("Dispositivo scollegato: i dati restano qui"); return; }
+    if (el.id === "sync-off") { if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Sì, scollega"; return; } if (setCodice("")) toast("Dispositivo scollegato: i dati restano qui"); return; }
     if (el.id === "fs") { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { toast("Schermo intero non disponibile qui"); } }
   });
   document.addEventListener("fullscreenchange", () => setTimeout(() => map.invalidateSize(), 150));
@@ -875,7 +887,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); });
   window.addEventListener("storage", e => {
     if (!e.key || e.key === "mappa-codice") { const c = LS.get("mappa-codice", ""); if (c !== S.codice) { conn++; clearTimeout(pushTimer); S.codice = c; S.syncState = ""; S.syncAt = ""; drawSync(); if (c) { dirty = true; pull(); } } if (e.key) return; }
-    if (e.key && e.key !== "mappa-dati") return;
+    if (e.key && e.key !== "mappa-dati" && !OLD_KEYS.includes(e.key)) return;
     // Un'altra scheda ha salvato: unisco (non sostituisco), così nessuna delle due perde il suo salvataggio.
     const disk = readDisk(), mem = { routes: S.routes, favs: S.favs, del: S.del };
     const m = merge(mem, disk);
@@ -893,7 +905,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   /* ---------- Avvio ---------- */
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   { const m = merge({ routes: S.routes, favs: S.favs, del: S.del }, {}); S.routes = m.routes; S.favs = m.favs; S.del = m.del; } // le cancellazioni ricordate valgono anche sui dati letti dal disco
-  $("mezzo").value = S.mode; tendine($("panel")); if (persist()) OLD_KEYS.forEach(LS.del); placePick();
+  $("mezzo").value = S.mode; tendine($("panel")); if (!persist()) toast(NO_SAVE); placePick();
   drawStops(); drawRoutes(); drawFavs(); drawSaved(); drawResult(); drawSync(); drawBar();
   applyHash(); pull();
 })();
