@@ -420,6 +420,9 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     LS.set("mappa-base", base); baseBtn.getContainer().textContent = base === "sat" ? "Mappa" : "Satellite";
   });
   const meBtn = ctl(ICO_ME, "Dove sono", toggleWatch);
+  // Un tocco per tornare al Programma del Taccuino (si apre a parte: la mappa resta com'è).
+  const TACCUINO = "https://claude.ai/artifact/X6RLNLFuniZJgPnfFbr7mG#programma";
+  ctl('<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>', "Programma", () => { window.open(TACCUINO, "_blank", "noopener"); });
   offlineBase();
   meBtn.getContainer().setAttribute("aria-pressed", "false");
   let watchId = null, firstFix = true;
