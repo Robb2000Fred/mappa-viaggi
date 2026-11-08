@@ -58,3 +58,26 @@ rifiutato, codice sconosciuto vuoto, 3 MB rifiutati, nessun segreto nel reposito
 - Il revisore non ha accesso al pannello Supabase: le protezioni le ho verificate io dall'esterno (risultati sopra).
 - Nessuna modifica è stata fatta in base a questo rapporto: le correzioni partono solo se Fred le chiede. Dopo le
   correzioni serve una nuova ispezione Codex in sessione fresca (prevista dal metodo).
+
+## Aggiornamento dopo le correzioni (8 nov 2026, sera)
+
+Fatto: le 17 correzioni accettate + "Salva zona" tolto (commit 4e6e600), poi 10 correzioni dalla prima ispezione del codice
+(commit 2bea15a). Metodo: 5 round di revisione del piano e 2 ispezioni del codice in sessioni Codex nuove (registro in `PLAN-REVIEW-LOG.md`).
+Da fare a mano: incollare il nuovo `supabase.sql` nell'SQL Editor (finché non è fatto, il database sovrascrive invece di unire).
+
+**Rilievi rimasti aperti dopo la seconda ispezione** (budget finito; tutti casi rari, nessuno di sicurezza):
+
+| # | Gravità | Cosa succede | Sforzo |
+|---|---|---|---|
+| MV-01 | media | Due schede che salvano insieme: un percorso cancellato può restare scritto nel browser accanto alla sua cancellazione e ricomparire dopo un ricaricamento offline. | basso |
+| MV-02 | media | Modifica ricevuta da un'altra scheda che poi si chiude entro 0,7 s: resta in memoria ma non parte verso il server finché non tocchi qualcosa. | basso |
+| MV-03 | media | Il salvataggio locale scrive 3 chiavi separate: se la memoria si riempie a metà, una parte resta scritta. Serve un salvataggio "tutto o niente". | medio |
+| MV-04 | media | Se i dati scaricati dal server non entrano nella memoria del browser, la pagina dice "Sincronizzato" ma dopo un ricaricamento offline mancano. | basso |
+| MV-05 | media | Crea/Scollega codice non controllano se il codice è stato scritto davvero nel browser. | basso |
+| MV-06 | media | Se la copia dei vecchi tasselli nella nuova cache si interrompe per spazio, i tasselli non copiati non vengono letti offline. | basso |
+| MV-07 | media | Un link `#r=` con le stesse tappe di un percorso già salvato riapre quello locale ignorando nome/data del link. | basso |
+| MV-08 | bassa | Dopo "Salva nei preferiti" sul telefono il focus torna al corpo della pagina, non al pulsante. | basso |
+| MV-09 | bassa | La tendina del mezzo (a piedi/bici/auto) evidenzia la voce con le frecce ma non lo comunica ai lettori di schermo. | medio |
+| MV-10 | bassa | Il limite di 26 tappe vale solo per il tocco sulla mappa, non per ricerca e link. | basso |
+
+**Stato dichiarato.** Sicurezza: nessun rilievo aperto. Funzionamento: i casi sopra. Non provato da nessuno: lettore di schermo, telefono vero offline in modo strumentato, carico.
