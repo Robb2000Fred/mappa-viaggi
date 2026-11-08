@@ -479,10 +479,17 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   function drawPick() {
     layers.pick.clearLayers(); const p = S.pick, box = $("pick");
     if (!p) { box.innerHTML = ""; return; }
+    if (p.stop !== undefined) {
+      const i = p.stop, n = S.pts.length;
+      box.innerHTML = `<div class="card stack"><div class="item-head"><span class="badge" style="background:${stopColor(i, n)};cursor:default" aria-hidden="true">${LET[i]}</span><b style="flex:1">${esc(p.name)}</b><button class="x" type="button" id="pick-x" aria-label="Chiudi">✕</button></div>
+        <div class="row"><button class="btn small" type="button" id="pick-fav">★ Preferito, non tappa</button><button class="btn small danger" type="button" id="pick-del">Togli</button></div></div>`;
+      return;
+    }
     mk(p, `<span class="dot pending"></span>`, 18).addTo(layers.pick);
-    const i = S.slot ?? S.pts.length, lbl = i < S.pts.length ? `Sostituisci ${LET[i]}` : `Tappa ${LET[i]}`;
+    const i = S.slot ?? S.pts.length, lbl = i < S.pts.length ? `Sposta qui ${LET[i]}` : `Tappa ${LET[i]}`;
+    const isFav = S.favs.some(f => f.lat === p.lat && f.lon === p.lon);
     box.innerHTML = `<div class="card stack"><div class="item-head"><b style="flex:1">${esc(p.name)}</b><button class="x" type="button" id="pick-x" aria-label="Chiudi">✕</button></div>
-      <div class="row"><button class="btn small primary" type="button" id="pick-stop">${esc(lbl)}</button><button class="btn small" type="button" id="pick-fav">★ Preferito</button></div></div>`;
+      <div class="row"><button class="btn small primary" type="button" id="pick-stop">${esc(lbl)}</button>${isFav ? "" : `<button class="btn small" type="button" id="pick-fav">★ Preferito</button>`}</div></div>`;
   }
 
   /* ---------- Tappe ---------- */
@@ -491,9 +498,9 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     for (let i = 0; i <= Math.min(n, 25); i++) {
       const p = S.pts[i], filled = !!p, active = S.slot === i;
       rows.push(`<div class="slot ${active ? "active" : ""}">
-        <button class="badge ${filled ? "" : "empty"}" type="button" data-pick="${i}" style="${filled ? `background:${stopColor(i, n)}` : ""}" aria-label="${filled ? `Tappa ${LET[i]}: scegli di nuovo sulla mappa` : `Tappa ${LET[i]}: scegli sulla mappa`}" aria-pressed="${active}">${LET[i]}</button>
+        <button class="badge ${filled ? "" : "empty"}" type="button" data-pick="${i}" style="${filled ? `background:${stopColor(i, n)}` : ""}" aria-label="${filled ? `Tappa ${LET[i]}: tocca per spostarla` : `Prossima tappa ${LET[i]}`}" aria-pressed="${active}">${LET[i]}</button>
         <div class="stack" style="gap:0"><span class="lbl-s">${i === 0 ? "Partenza" : filled && i === n - 1 ? "Arrivo" : filled ? "Tappa" : n < 2 ? "Arrivo" : "Altra tappa"}</span>
-          <span class="name ${filled ? "" : "ph"}">${filled ? esc(p.name) : active ? "Tocca la mappa…" : "Tocca la mappa o cerca un posto"}</span></div>
+          <span class="name ${filled ? "" : "ph"}">${filled ? esc(p.name) : "Tocca un punto sulla mappa o cerca un posto"}</span></div>
         ${filled ? `<button class="x" type="button" data-clear="${i}" aria-label="Togli la tappa ${LET[i]}">✕</button>` : "<span></span>"}
       </div>`);
     }
@@ -503,11 +510,11 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     const pt = { lat: p.lat, lon: p.lon, name: p.name, auto: !!p.auto };
     if (i >= S.pts.length) S.pts.push(pt); else S.pts[i] = pt;
     S.savedId = null; S.route = null; layers.route.clearLayers(); S.slot = null;
-    if (S.pick) { S.pick = null; drawPick(); }
+    S.pick = p.auto ? Object.assign(pt, { stop: Math.min(i, S.pts.length - 1) }) : null; drawPick();
     drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady();
     if (pt.auto) reverseName(pt);
   }
-  function clearStop(i) { S.pts.splice(i, 1); S.route = null; S.savedId = null; layers.route.clearLayers(); S.slot = null; drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); }
+  function clearStop(i) { S.pts.splice(i, 1); S.pick = null; drawPick(); S.route = null; S.savedId = null; layers.route.clearLayers(); S.slot = null; drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); }
   const pinHtml = (i, n, name, date) => `<span class="mk-wrap"><span class="pin" style="background:${stopColor(i, n)}">${LET[i]}</span>${name ? `<span class="rlabel">${esc(name)}${date ? dateBlock(date) : ""}</span>` : ""}</span>`;
   function drawEnds() {
     layers.ends.clearLayers();
@@ -564,6 +571,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (!name) { toast("Scrivi un nome, per esempio Porto-Dune"); inp.focus(); return; }
     if (!S.route) return;
     let it = S.savedId && S.routes.find(x => x.id === S.savedId);
+    S.pick = null; drawPick();
     if (it) { it.name = name; it.mod = now(); }
     else { it = { id: newId(), name, mode: S.mode, pts: S.pts.map(p => ({ lat: p.lat, lon: p.lon, name: p.name })), distance: S.route.distance, duration: S.route.duration, coords: S.route.coords, date: S.pendingDate || "", at: now(), mod: now() }; S.routes.unshift(it); S.savedId = it.id; S.pendingDate = ""; }
     persist(); push(); drawResult(); drawRoutes(); drawEnds(); drawSaved(); drawBar(); toast(`"${name}" salvato`);
@@ -575,7 +583,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     drawStops(); drawEnds(); drawRoute(true); drawResult(); drawRoutes(); drawSaved(); drawBar();
     if (isMobile()) closeSheet();
   }
-  function newRoute() { S.pts = []; S.route = null; S.savedId = null; S.draftName = ""; S.slot = 0; layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); if (isMobile()) closeSheet(); toast("Tocca la mappa per la partenza"); }
+  function newRoute() { S.pts = []; S.route = null; S.savedId = null; S.draftName = ""; S.slot = null; S.pick = null; drawPick(); layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); if (isMobile()) closeSheet(); toast("Tocca un punto sulla mappa: diventa A"); }
   function drawRoutes() {
     $("routes-n").textContent = S.routes.length || "";
     $("routes").innerHTML = S.routes.length ? S.routes.map(it => `<article class="card item ${it.id === S.savedId ? "current" : ""}">
@@ -589,17 +597,17 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   function drawBar(msg) {
     if (!isMobile()) return;
     const n = S.pts.length, chips = [];
-    for (let i = 0; i <= Math.min(n, 25); i++) {
-      const filled = i < n, active = S.slot === i;
+    for (let i = 0; i < n; i++) {
+      const filled = true, active = S.slot === i;
       chips.push(`<button class="badge ${filled ? "" : "empty"} ${active ? "active" : ""}" type="button" data-pick="${i}" style="${filled ? `background:${stopColor(i, n)}` : ""}" aria-label="Tappa ${LET[i]}" aria-pressed="${active}">${LET[i]}</button>`);
     }
     $("chips").innerHTML = chips.join("");
     const info = $("bar-info"), saved = S.savedId && S.routes.find(x => x.id === S.savedId);
     if (msg) info.innerHTML = `<span class="txt muted">${esc(msg)}</span>`;
-    else if (S.slot !== null) info.innerHTML = `<span class="txt">Tocca la mappa per ${LET[S.slot]}</span>${S.slot < n ? `<button class="btn small danger" type="button" data-clear="${S.slot}">Togli</button>` : ""}<button class="btn small" type="button" id="bar-cancel">Annulla</button>`;
+    else if (S.slot !== null) info.innerHTML = `<span class="txt">Tocca la mappa per spostare ${LET[S.slot]}</span><button class="btn small danger" type="button" data-clear="${S.slot}">Togli</button><button class="btn small" type="button" id="bar-cancel">Annulla</button>`;
     else if (S.route) info.innerHTML = `<span class="txt">${saved ? esc(saved.name) + " · " : ""}${esc(fmtKm(S.route.distance))} · ${esc(fmtMin(S.route.duration))}</span><button class="btn small ${saved ? "" : "primary"}" type="button" id="bar-save">${saved ? "Dettagli" : "Salva"}</button>`;
-    else if (n === 1) info.innerHTML = `<span class="txt muted">Ora tocca B e poi un punto sulla mappa</span>`;
-    else info.innerHTML = `<span class="txt muted">Tocca A e poi un punto sulla mappa</span>`;
+    else if (n === 1) info.innerHTML = `<span class="txt muted">Tocca il prossimo punto: diventa B</span>`;
+    else info.innerHTML = `<span class="txt muted">Tocca un punto sulla mappa: diventa A</span>`;
   }
 
   /* ---------- Calendario ---------- */
@@ -735,12 +743,13 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   /* ---------- Eventi ---------- */
   map.on("click", e => {
     const p = { lat: +e.latlng.lat.toFixed(5), lon: +e.latlng.lng.toFixed(5) };
-    if (S.slot !== null) { setStop(S.slot, { ...p, name: `${p.lat}, ${p.lon}`, auto: true }); return; }
-    const obj = { ...p, name: `${p.lat}, ${p.lon}`, auto: true }; setPick(obj); reverseName(obj);
+    if (S.slot === null && S.pts.length >= 26) { toast("Hai già 26 tappe"); return; }
+    if (S.favForm) { S.favForm = null; drawFavForm(); }
+    setStop(S.slot === null ? S.pts.length : S.slot, { ...p, name: `${p.lat}, ${p.lon}`, auto: true });
   });
   document.addEventListener("click", async e => {
     const el = e.target.closest("button, a"); if (!el) return;
-    if (el.dataset.pick !== undefined) { const i = Number(el.dataset.pick); S.slot = S.slot === i ? null : i; drawStops(); drawBar(); if (S.slot !== null) { if (isMobile()) closeSheet(); toast(`Tocca la mappa per ${LET[i]}`); } return; }
+    if (el.dataset.pick !== undefined) { const i = Number(el.dataset.pick); if (i >= S.pts.length) { toast(`Tocca un punto sulla mappa: diventa ${LET[i]}`); if (isMobile()) closeSheet(); return; } S.slot = S.slot === i ? null : i; S.pick = null; drawPick(); drawStops(); drawBar(); if (S.slot !== null) { if (isMobile()) closeSheet(); toast(`Tocca la mappa per spostare ${LET[i]}`); } return; }
     if (el.dataset.clear !== undefined) { clearStop(Number(el.dataset.clear)); return; }
     if (el.id === "bar-cancel") { S.slot = null; drawStops(); drawBar(); return; }
     if (el.id === "bar-save") { openSheet("Percorso", "rname"); return; }
@@ -750,7 +759,8 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (el.classList.contains("res")) { const x = $("res")._rows[Number(el.dataset.i)]; const p = { lat: +Number(x.lat).toFixed(5), lon: +Number(x.lon).toFixed(5), name: shortName(x) }; $("res").hidden = true; map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15)); setPick(p); return; }
     if (el.id === "q-clear") { $("q").value = ""; $("res").hidden = true; el.hidden = true; $("q").focus(); return; }
     if (el.id === "pick-stop") { setStop(S.slot ?? S.pts.length, S.pick); return; }
-    if (el.id === "pick-fav") { const p = S.pick; S.favForm = { lat: p.lat, lon: p.lon, name: p.auto ? "" : p.name, icon: "stella", color: COLORS[0] }; S.pick = null; drawPick(); drawFavForm(); return; }
+    if (el.id === "pick-fav") { const p = S.pick; if (p.stop !== undefined) S.pts.splice(p.stop, 1); S.favForm = { lat: p.lat, lon: p.lon, name: p.auto ? "" : p.name, icon: "stella", color: COLORS[0] }; S.pick = null; drawPick(); if (p.stop !== undefined) { S.route = null; S.savedId = null; layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); } drawFavForm(); return; }
+    if (el.id === "pick-del") { clearStop(S.pick.stop); return; }
     if (el.id === "pick-x") { S.pick = null; drawPick(); return; }
     if (el.id === "gps-slot") { try { toast("Cerco la tua posizione…"); const p = await myPosition(); if (S.slot !== null) setStop(S.slot, p); else { map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15)); setPick(p); } } catch { toast("Posizione non disponibile: controlla i permessi del browser"); } return; }
     if (el.id === "swap") { if (S.pts.length < 2) return; S.pts.reverse(); S.savedId = null; S.route = null; layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); return; }
@@ -768,7 +778,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (el.dataset.ico) { S.favForm.icon = el.dataset.ico; el.parentElement.querySelectorAll(".ico").forEach(b => b.setAttribute("aria-checked", b === el)); return; }
     if (el.dataset.col) { S.favForm.color = el.dataset.col; el.parentElement.querySelectorAll(".sw").forEach(b => b.setAttribute("aria-checked", b === el)); return; }
     if (el.id === "save-fav") { saveFav(); return; }
-    if (el.id === "cancel-fav") { S.favForm = null; drawFavForm(); return; }
+    if (el.id === "cancel-fav") { S.favForm = null; drawFavForm(); if (isMobile()) closeSheet(); return; }
     if (el.dataset.openF) { const f = S.favs.find(x => x.id === el.dataset.openF); if (f) { map.setView([f.lat, f.lon], Math.max(map.getZoom(), 16)); setPick({ lat: f.lat, lon: f.lon, name: f.name }); } return; }
     if (el.dataset.editF) { const f = S.favs.find(x => x.id === el.dataset.editF); if (f) { S.favForm = { ...f }; S.pick = null; drawPick(); drawFavForm(); map.setView([f.lat, f.lon], Math.max(map.getZoom(), 15)); } return; }
     if (el.dataset.delF) { if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Sì, elimina"; return; }
