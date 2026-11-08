@@ -89,5 +89,7 @@ la prima ha trovato 4 casi limite nelle correzioni (sistemati, commit 6adb32d), 
 Nessuno dei 6 era di sicurezza: riguardavano la convivenza di una scheda vecchia con una nuova durante l'aggiornamento, i messaggi
 di Crea/Scollega quando il browser non salva, e un percorso arrivato senza tracciato.
 
-**Stato dichiarato.** Sicurezza: nessun rilievo aperto. Funzionamento: nessun rilievo aperto; le ultime 2 correzioni non sono ancora
-state ispezionate da Codex (budget del giro finito). Non provato da nessuno: memoria del browser piena, migrazione dei tasselli interrotta, lettore di schermo.
+Terza ispezione (autorizzata da Fred come giro extra): **APPROVED, nessun rilievo**. Tutto il codice online è stato ispezionato da Codex in sessione nuova.
+
+**Stato dichiarato.** Sicurezza: nessun rilievo aperto. Funzionamento: nessun rilievo aperto. Non provato da nessuno: memoria del browser piena,
+migrazione dei tasselli interrotta, lettore di schermo. Da fare a mano: Run di `supabase.sql` nell'SQL Editor (finché non è fatto, il database sovrascrive invece di unire).
