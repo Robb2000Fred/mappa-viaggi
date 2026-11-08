@@ -126,3 +126,23 @@ Rilievi del round 1 e disposizione. Tutti i rilievi tranne R04 (mitigato) e R09 
 Cosa NON cambia: struttura dei dati, link `#r=`/`#f=`, UI generale. La ricerca con Photon (commit 77ab92f di un'altra sessione) non è oggetto delle correzioni.
 
 Prove a fine costruzione (oltre a quelle del round 1): sintassi JS; `scrivi` doppio e `leggi` (R01); prove nel browser integrato a 375×812 e 1024×768: tocco→A, tocco→B, Preferito/Togli, Salva, Inverti con scheda aperta (R06), misure 44 px (R17), `panel.inert` (R14), offline simulato → base OSM (R11).
+
+## Correzioni (round 3): i 10 rilievi della seconda ispezione (MV-01..MV-10)
+
+Autorizzate da Fred l'8 nov 2026 ("Sì, correggi"). Costruttore: Claude (sessione coordinatrice). Commit base pre-costruzione: aa19f08.
+
+| # | Cosa cambia | Come si prova |
+|---|---|---|
+| MV-03 | Percorsi, preferiti e cancellazioni stanno in UNA chiave `mappa-dati` `{v,routes,favs,del}`: `persist()` fa una sola `setItem` (tutto o niente). Le tre chiavi vecchie (`mappa-percorsi`, `mappa-preferiti`, `mappa-del`) si leggono solo se `mappa-dati` manca e si cancellano dopo il primo salvataggio riuscito. | Avvio con le tre chiavi vecchie → dopo l'avvio esiste solo `mappa-dati` con gli stessi dati. |
+| MV-01 | All'avvio i dati letti passano da `merge(disk, {})`: le cancellazioni ricordate (tombstone) tolgono i percorsi/preferiti con `mod` ≤ data di cancellazione. Nell'evento `storage` il confronto è con ciò che è scritto davvero (`canon([disk.routes, disk.favs, disk.del])`), non con la sua copia ripulita: un disco "sporco" viene riscritto. | Disco con percorso X e `del[X]` più recente → all'avvio X non c'è; evento storage con lo stesso caso → il disco viene riscritto senza X. |
+| MV-02 | Nell'evento `storage`, se la memoria cambia (anche senza riscrivere il disco) si segna `dirty` e si fa `push()`. | Scheda 2 scrive un percorso nuovo → scheda 1 lo mostra e programma la sincronizzazione. |
+| MV-04 | `pull()` legge il risultato di `persist()`: se fallisce lo stato diventa `nosave` (chip "Scaricato, ma non salvato sul dispositivo") e compare il toast NO_SAVE. | Lettura del codice (localStorage pieno non simulabile qui). |
+| MV-05 | `setCodice()` scrive prima il codice (`LS.set`, o `LS.del` per scollegare) e, se la scrittura fallisce, avvisa e non cambia stato. | Lettura del codice. |
+| MV-06 | `sw.js`: su un tassello assente in `mappa-tiles-v1` si guarda anche la vecchia `tiles-v1` (`caches.match(url, {cacheName})`), si serve e si copia nella nuova. | Lettura del codice. |
+| MV-07 | `applyHash` riusa un percorso salvato solo se coincidono mezzo, nome, data, numero di tappe, coordinate e nomi delle tappe; altrimenti apre una bozza con i dati del link. | Link con le stesse tappe ma nome diverso → bozza "Altro nome" non salvata; link identico → riapre il salvato. |
+| MV-08 | `openSheet` registra chi apre solo se non è il body; `closeSheet` riporta il focus anche quando l'elemento premuto è stato rimosso (focus già sul body). | 375×812: apri menu, togli il focus, chiudi → focus su `bar-menu`. |
+| MV-09 | Tendina: `role="combobox"`, `aria-controls` verso la lista con id, ogni voce ha un id, `aria-activedescendant` segue la voce evidenziata e sparisce alla chiusura. | DOM: `[role=combobox][aria-controls]` punta a una lista esistente. |
+| MV-10 | Limite 26 tappe dentro `setStop` (vale per tocco, ricerca, GPS) e in `applyHash` (link con più di 26 tappe ignorato). | Link con 27 tappe → 0 tappe; con 26 → 26; tocco in più → toast "Hai già 26 tappe". |
+| extra | `drawSaved` non disegna il tracciato di un percorso senza `coords` (dato rovinato) invece di andare in errore. | Percorso senza coords in memoria → nessun errore in console. |
+
+Prove eseguite dal coordinatore l'8 nov 2026 nel browser integrato (localhost:8790): tutte quelle della colonna "Come si prova" marcate come prova, con esito positivo. Non provati: localStorage pieno (MV-04/05), service worker con migrazione interrotta (MV-06), lettore di schermo (MV-09).
