@@ -6,6 +6,12 @@
 <title>Mappa Viaggi</title>
 <meta name="description" content="La mia mappa per i viaggi: percorsi da un punto a un altro e posti preferiti.">
 <meta name="robots" content="noindex">
+<meta name="theme-color" content="#B5634D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mappa">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 22s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z" fill="%23B5634D"/><circle cx="12" cy="10" r="2.6" fill="%23fff"/></svg>'>
 <link rel="stylesheet" href="fonts/poppins.css">
 <link rel="stylesheet" href="vendor/leaflet.min.css">
@@ -326,7 +332,10 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   /* ---------- Mappa ---------- */
   const view = LS.get("mappa-vista", { lat: 42.5, lon: 12.5, z: 6 });
   const map = L.map("map", { zoomControl: true, tap: false }).setView([view.lat, view.lon], view.z);
-  const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, className: "osm", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' });
+  const makeOsm = () => L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, maxNativeZoom: navigator.onLine === false ? 16 : 19, className: "osm", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' });
+  let osm = makeOsm();
+  const refreshOsm = () => { if (map.hasLayer(osm)) { map.removeLayer(osm); osm = makeOsm().addTo(map); } else osm = makeOsm(); toast(navigator.onLine === false ? "Sei senza internet: vedi la mappa salvata" : "Internet è tornato"); };
+  window.addEventListener("online", refreshOsm); window.addEventListener("offline", refreshOsm);
   const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Esri, Maxar, Earthstar Geographics" });
   let base = LS.get("mappa-base", "mappa");
   (base === "sat" ? sat : osm).addTo(map);
@@ -343,6 +352,8 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (base === "sat") { map.removeLayer(sat); osm.addTo(map); base = "mappa"; } else { map.removeLayer(osm); sat.addTo(map); base = "sat"; }
     LS.set("mappa-base", base); baseBtn.getContainer().textContent = base === "sat" ? "Mappa" : "Satellite";
   });
+  const ICO_DL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M4 19h16"/></svg>';
+  ctl(ICO_DL + "Salva zona", "Salva questa zona della mappa per usarla senza internet", downloadArea);
   const meBtn = ctl(ICO_ME, "Dove sono", toggleWatch);
   meBtn.getContainer().setAttribute("aria-pressed", "false");
   let watchId = null, firstFix = true;
@@ -358,6 +369,29 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
       if (firstFix) { firstFix = false; map.setView(ll, Math.max(map.getZoom(), 15)); }
     }, e => { toast(e.code === 1 ? "Hai negato la posizione al browser" : "Posizione non trovata"); watchId = null; meBtn.getContainer().setAttribute("aria-pressed", "false"); },
     { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  }
+  /* Offline: scarica i pezzi di mappa della zona inquadrata (zoom 11-16) nella memoria del browser. */
+  const tileXY = (lat, lon, z) => { const n = 2 ** z, r = lat * Math.PI / 180; return [Math.floor((lon + 180) / 360 * n), Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n)]; };
+  let downloading = false;
+  async function downloadArea() {
+    if (!("caches" in window)) { toast("Questo browser non può salvare la mappa"); return; }
+    if (downloading) { toast("Sto già scaricando…"); return; }
+    const b = map.getBounds(), urls = [];
+    for (let z = 11; z <= 16; z++) {
+      const [x0, y0] = tileXY(b.getNorth(), b.getWest(), z), [x1, y1] = tileXY(b.getSouth(), b.getEast(), z);
+      for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) urls.push(`https://tile.openstreetmap.org/${z}/${x}/${y}.png`);
+    }
+    const total = urls.length;
+    if (total > 900) { toast(`Zona troppo grande (${total} pezzi): avvicina la mappa`); return; }
+    downloading = true; let done = 0, fail = 0;
+    toast(`Scarico ${total} pezzi di mappa…`);
+    try {
+      const c = await caches.open("tiles-v1");
+      const worker = async () => { while (urls.length) { const u = urls.shift(); try { if (!(await c.match(u))) { const r = await fetch(u); if (r.ok) await c.put(u, r); else fail++; } } catch { fail++; } done++; if (done % 40 === 0) toast(`Scaricati ${done} di ${total}…`); } };
+      await Promise.all([worker(), worker(), worker()]);
+      toast(fail ? `Zona salvata, ${fail} pezzi mancanti: riprova` : "Zona salvata: funziona anche senza internet");
+    } catch { toast("Non riesco a salvare la zona"); }
+    downloading = false;
   }
   const myPosition = () => new Promise((ok, no) => {
     if (!navigator.geolocation) return no(new Error("no"));
@@ -628,6 +662,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   window.addEventListener("hashchange", applyHash);
 
   /* ---------- Avvio ---------- */
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   $("mezzo").value = S.mode; tendine($("panel"));
   drawSlots(); drawRoutes(); drawFavs(); drawSaved(); drawResult();
   applyHash();
