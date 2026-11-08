@@ -81,3 +81,13 @@ Da fare a mano: incollare il nuovo `supabase.sql` nell'SQL Editor (finch√© non √
 | MV-10 | bassa | Il limite di 26 tappe vale solo per il tocco sulla mappa, non per ricerca e link. | basso |
 
 **Stato dichiarato.** Sicurezza: nessun rilievo aperto. Funzionamento: i casi sopra. Non provato da nessuno: lettore di schermo, telefono vero offline in modo strumentato, carico.
+
+## Aggiornamento round 3 (8 nov 2026, notte)
+
+I 10 rilievi MV-01..MV-10 sono corretti e pubblicati (commit 35f7db1). Codex li ha ricontrollati due volte in sessioni nuove:
+la prima ha trovato 4 casi limite nelle correzioni (sistemati, commit 6adb32d), la seconda altri 2 (sistemati nell'ultimo commit).
+Nessuno dei 6 era di sicurezza: riguardavano la convivenza di una scheda vecchia con una nuova durante l'aggiornamento, i messaggi
+di Crea/Scollega quando il browser non salva, e un percorso arrivato senza tracciato.
+
+**Stato dichiarato.** Sicurezza: nessun rilievo aperto. Funzionamento: nessun rilievo aperto; le ultime 2 correzioni non sono ancora
+state ispezionate da Codex (budget del giro finito). Non provato da nessuno: memoria del browser piena, migrazione dei tasselli interrotta, lettore di schermo.

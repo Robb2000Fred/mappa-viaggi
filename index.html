@@ -294,9 +294,9 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   // (qui si accostano soltanto: i doppioni per id li toglie merge() all'avvio e nell'evento storage; merge non è ancora pronta a questo punto del file)
   const readDisk = () => {
     const d = LS.get("mappa-dati", null), nw = d && typeof d === "object" ? { routes: Array.isArray(d.routes) ? d.routes : [], favs: Array.isArray(d.favs) ? d.favs : [], del: d.del && typeof d.del === "object" ? d.del : {} } : null;
-    if (!nw) return readLegacy(); if (!hasLegacy()) return nw;
+    if (!nw) return { ...readLegacy(), doc: null }; if (!hasLegacy()) return { ...nw, doc: nw };
     const lg = readLegacy(), del = { ...lg.del }; for (const [k, v] of Object.entries(nw.del)) if (!del[k] || v > del[k]) del[k] = v;
-    return { routes: [...nw.routes, ...lg.routes], favs: [...nw.favs, ...lg.favs], del };
+    return { routes: [...nw.routes, ...lg.routes], favs: [...nw.favs, ...lg.favs], del, doc: nw }; // doc = il solo mappa-dati, per i confronti
   };
   const MODES = {
     piedi: { label: "A piedi", osrm: "routed-foot/route/v1/foot" },
@@ -609,8 +609,8 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (!S.route) return;
     let it = S.savedId && S.routes.find(x => x.id === S.savedId);
     S.pick = null; drawPick();
-    const old = it ? { name: it.name, mod: it.mod } : null, pend = S.pendingDate;
-    if (it) { it.name = name; it.mod = now(); }
+    const old = it ? { name: it.name, mod: it.mod, coords: it.coords, distance: it.distance, duration: it.duration } : null, pend = S.pendingDate;
+    if (it) { it.name = name; it.mod = now(); it.coords = S.route.coords; it.distance = S.route.distance; it.duration = S.route.duration; } // anche il tracciato ricalcolato (percorso arrivato senza coords)
     else { it = { id: newId(), name, mode: S.mode, pts: S.pts.map(p => ({ lat: p.lat, lon: p.lon, name: p.name })), distance: S.route.distance, duration: S.route.duration, coords: S.route.coords, date: S.pendingDate || "", at: now(), mod: now() }; S.routes.unshift(it); S.savedId = it.id; S.pendingDate = ""; }
     const ok = persist();
     if (!ok) { // ripristino: niente "Salvato" finto
@@ -892,7 +892,9 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     const disk = readDisk(), mem = { routes: S.routes, favs: S.favs, del: S.del };
     const m = merge(mem, disk);
     const memChanged = canon(m) !== canon(merge(mem, {}));
-    const diskChanged = canon([m.routes, m.favs, m.del]) !== canon([disk.routes, disk.favs, disk.del]); // confronto con ciò che è SCRITTO davvero, non con la sua copia ripulita
+    // Riscrivo solo se mappa-dati (il documento vero, non le chiavi vecchie accostate) non contiene già tutto: una scheda con la versione
+    // precedente che ripristina le sue chiavi vecchie con gli stessi dati non fa partire un altro giro di scrittura e cancellazione.
+    const diskChanged = !disk.doc || canon([m.routes, m.favs, m.del]) !== canon([disk.doc.routes, disk.doc.favs, disk.doc.del]);
     S.routes = m.routes; S.favs = m.favs; S.del = m.del;
     if (diskChanged) { if (!persist()) toast(NO_SAVE); push(); } // riscrivo solo se sul disco manca qualcosa: niente rimbalzi
     else if (memChanged) { dirty = true; push(); } // la novità è già sul disco ma non ancora sul server
