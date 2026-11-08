@@ -104,6 +104,7 @@ button, input, select { font: inherit; color: inherit; }
 .results li.meta { padding: 8px 10px; }
 .res { all: unset; box-sizing: border-box; display: grid; width: 100%; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
 .res:hover, .res:focus-visible { background: var(--accent-soft); outline: none; }
+.muted { color: var(--muted); font-weight: 400; }
 .res span { font-size: 13px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .figs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .fig { display: grid; gap: 2px; padding: 12px 16px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); }
@@ -462,19 +463,39 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
 
   /* ---------- Ricerca e posto scelto ---------- */
   const shortName = x => x.name || String(x.display_name || "").split(",")[0] || "Posto scelto";
-  async function search(q) {
-    const list = $("res"); q = q.trim();
-    if (!q) { list.hidden = true; return; }
-    list.hidden = false; list.innerHTML = `<li class="meta">Cerco…</li>`;
-    const b = map.getBounds(), vb = `${b.getWest()},${b.getNorth()},${b.getEast()},${b.getSouth()}`;
-    try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=it&viewbox=${vb}&q=${encodeURIComponent(q)}`);
-      const rows = await r.json();
-      if (!rows.length) { list.innerHTML = `<li class="meta">Nessun posto trovato con questo nome</li>`; return; }
-      list._rows = rows;
-      list.innerHTML = rows.map((x, i) => `<li><button type="button" class="res" data-i="${i}"><b>${esc(shortName(x))}</b><span>${esc(x.display_name)}</span></button></li>`).join("");
-    } catch { list.innerHTML = `<li class="meta">Ricerca non riuscita: controlla la connessione</li>`; }
+  // Photon (komoot): suggerimenti mentre scrivi, tollera parole a metà; i posti nella zona in vista vengono prima.
+  // Nominatim resta come riserva quando Photon non trova nulla.
+  const inView = (b, x) => b.contains([x.lat, x.lon]);
+  function fromPhoton(f) {
+    const pr = f.properties || {}, [lon, lat] = f.geometry.coordinates;
+    const parts = [pr.name, pr.street && pr.name !== pr.street ? pr.street : "", pr.city || pr.town || pr.village || pr.county, pr.state, pr.country].filter(Boolean);
+    return { lat, lon, name: pr.name || pr.street || "Posto", display_name: [...new Set(parts)].join(", ") };
   }
+  let qSeq = 0;
+  async function search(q, typing) {
+    const list = $("res"); q = q.trim();
+    if (!q || (typing && q.length < 3)) { if (!q) list.hidden = true; return; }
+    const seq = ++qSeq;
+    list.hidden = false; if (!typing) list.innerHTML = `<li class="meta">Cerco…</li>`;
+    const b = map.getBounds(), c = map.getCenter();
+    let rows = [];
+    try {
+      const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lat=${c.lat.toFixed(4)}&lon=${c.lng.toFixed(4)}&zoom=${Math.min(16, Math.round(map.getZoom()))}&location_bias_scale=0.4&limit=8`);
+      rows = ((await r.json()).features || []).map(fromPhoton);
+      if (!rows.length && !typing) {
+        const vb = `${b.getWest()},${b.getNorth()},${b.getEast()},${b.getSouth()}`;
+        const n = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=it&viewbox=${vb}&q=${encodeURIComponent(q)}`);
+        rows = await n.json();
+      }
+    } catch { if (seq === qSeq && !typing) list.innerHTML = `<li class="meta">Ricerca non riuscita: controlla la connessione</li>`; return; }
+    if (seq !== qSeq) return;
+    rows = [...rows.filter(x => inView(b, x)), ...rows.filter(x => !inView(b, x))].slice(0, 6);
+    if (!rows.length) { list.innerHTML = typing ? "" : `<li class="meta">Nessun posto trovato con questo nome</li>`; list.hidden = typing; return; }
+    list._rows = rows;
+    list.innerHTML = rows.map((x, i) => `<li><button type="button" class="res" data-i="${i}"><b>${esc(shortName(x))}${inView(b, x) ? "" : ` <small class="muted">· lontano</small>`}</b><span>${esc(x.display_name)}</span></button></li>`).join("");
+  }
+  let typeTimer = null;
+  const suggest = v => { clearTimeout(typeTimer); typeTimer = setTimeout(() => search(v, true), 350); };
   async function reverseName(obj) {
     try {
       const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=it&zoom=17&lat=${obj.lat}&lon=${obj.lon}`);
@@ -799,9 +820,9 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (el.id === "fs") { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { toast("Schermo intero non disponibile qui"); } }
   });
   document.addEventListener("fullscreenchange", () => setTimeout(() => map.invalidateSize(), 150));
-  document.addEventListener("input", e => { if (e.target.id === "q") $("q-clear").hidden = !e.target.value; if (e.target.id === "fname" && S.favForm) S.favForm.name = e.target.value; });
+  document.addEventListener("input", e => { if (e.target.id === "q") { $("q-clear").hidden = !e.target.value; suggest(e.target.value); } if (e.target.id === "fname" && S.favForm) S.favForm.name = e.target.value; });
   document.addEventListener("keydown", e => {
-    if (e.target.id === "q" && e.key === "Enter") { e.preventDefault(); search(e.target.value); }
+    if (e.target.id === "q" && e.key === "Enter") { e.preventDefault(); clearTimeout(typeTimer); search(e.target.value); }
     else if (e.target.id === "q" && e.key === "Escape") { $("res").hidden = true; }
     else if (e.key === "Enter" && e.target.id === "rname") { e.preventDefault(); saveRoute(); }
     else if (e.key === "Enter" && e.target.id === "fname") { e.preventDefault(); saveFav(); }
