@@ -539,7 +539,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     $("stops").innerHTML = rows.join("");
   }
   function setStop(i, p) {
-    if (i >= S.pts.length && S.pts.length >= 26) { toast("Hai già 26 tappe"); return; } // vale per tocco, ricerca e GPS
+    if (i >= S.pts.length && S.pts.length >= 26) { toast("Hai già 26 tappe"); return false; } // vale per tocco, ricerca e GPS
     const pt = { lat: p.lat, lon: p.lon, name: p.name, auto: !!p.auto };
     if (i >= S.pts.length) S.pts.push(pt); else S.pts[i] = pt;
     S.savedId = null; S.route = null; layers.route.clearLayers(); S.slot = null;
@@ -630,7 +630,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (!okCoords) routeIfReady(); // tracciato mancante (dato rovinato): lo ricalcolo
     if (isMobile()) closeSheet();
   }
-  function newRoute() { routeToken++; S.pts = []; S.route = null; S.savedId = null; S.draftName = null; S.pendingDate = ""; S.slot = null; S.pick = null; drawPick(); layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); if (isMobile()) closeSheet(); toast("Tocca un punto sulla mappa: diventa A"); }
+  function newRoute() { routeToken++; S.pts = []; S.route = null; S.savedId = null; S.draftName = null; S.pendingDate = ""; S.slot = null; S.pick = null; drawPick(); layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); if (isMobile()) closeSheet(); toast("Tocca un punto sulla mappa e scegli A"); }
   function drawRoutes() {
     $("routes-n").textContent = S.routes.length || "";
     $("routes").innerHTML = S.routes.length ? S.routes.map(it => `<article class="card item ${it.id === S.savedId ? "current" : ""}">
@@ -669,8 +669,8 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (msg) info.innerHTML = `<span class="txt muted">${esc(msg)}</span>`;
     else if (S.slot !== null) info.innerHTML = `<span class="txt">Tocca la mappa per spostare ${LET[S.slot]}</span><button class="btn small danger" type="button" data-clear="${S.slot}">Togli</button><button class="btn small" type="button" id="bar-cancel">Annulla</button>`;
     else if (S.route) info.innerHTML = `<span class="txt">${saved ? esc(saved.name) + " · " : ""}${esc(fmtKm(S.route.distance))} · ${esc(fmtMin(S.route.duration))}</span><button class="btn small ${saved ? "" : "primary"}" type="button" id="bar-save">${saved ? "Dettagli" : "Salva"}</button>`;
-    else if (n === 1) info.innerHTML = `<span class="txt muted">Tocca il prossimo punto: diventa B</span>`;
-    else info.innerHTML = `<span class="txt muted">Tocca un punto sulla mappa: diventa A</span>`;
+    else if (n === 1) info.innerHTML = `<span class="txt muted">Tocca il prossimo punto e scegli B</span>`;
+    else info.innerHTML = `<span class="txt muted">Tocca un punto sulla mappa e scegli A</span>`;
   }
 
   /* ---------- Calendario ---------- */
@@ -838,15 +838,15 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   }
 
   /* ---------- Eventi ---------- */
+  // Tocco sulla mappa: non diventa subito una tappa. Compare la scelta "Tappa A" / "★ Preferito" / ✕, così un tocco per sbaglio non sporca il percorso.
   map.on("click", e => {
     const p = { lat: +e.latlng.lat.toFixed(5), lon: +e.latlng.lng.toFixed(5) };
-    if (S.slot === null && S.pts.length >= 26) { toast("Hai già 26 tappe"); return; }
-    if (S.favForm) { S.favForm = null; drawFavForm(); }
-    setStop(S.slot === null ? S.pts.length : S.slot, { ...p, name: `${p.lat}, ${p.lon}`, auto: true });
+    const pick = { ...p, name: `${p.lat}, ${p.lon}`, auto: true };
+    setPick(pick); reverseName(pick);
   });
   document.addEventListener("click", async e => {
     const el = e.target.closest("button, a"); if (!el) return;
-    if (el.dataset.pick !== undefined) { const i = Number(el.dataset.pick); if (i >= S.pts.length) { toast(`Tocca un punto sulla mappa: diventa ${LET[i]}`); if (isMobile()) closeSheet(); return; } S.slot = S.slot === i ? null : i; S.pick = null; drawPick(); drawStops(); drawBar(); if (S.slot !== null) { if (isMobile()) closeSheet(); toast(`Tocca la mappa per spostare ${LET[i]}`); } return; }
+    if (el.dataset.pick !== undefined) { const i = Number(el.dataset.pick); if (i >= S.pts.length) { toast(`Tocca un punto sulla mappa e scegli ${LET[i]}`); if (isMobile()) closeSheet(); return; } S.slot = S.slot === i ? null : i; S.pick = null; drawPick(); drawStops(); drawBar(); if (S.slot !== null) { if (isMobile()) closeSheet(); toast(`Tocca la mappa per spostare ${LET[i]}`); } return; }
     if (el.dataset.clear !== undefined) { clearStop(Number(el.dataset.clear)); return; }
     if (el.id === "bar-cancel") { S.slot = null; drawStops(); drawBar(); return; }
     if (el.id === "bar-save") { openSheet("Percorso", "rname"); return; }
@@ -856,7 +856,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (el.id === "sheet-close") { closeSheet(); return; }
     if (el.classList.contains("res")) { const x = $("res")._rows[Number(el.dataset.i)]; const p = { lat: +Number(x.lat).toFixed(5), lon: +Number(x.lon).toFixed(5), name: shortName(x) }; $("res").hidden = true; map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15)); setPick(p); return; }
     if (el.id === "q-clear") { $("q").value = ""; $("res").hidden = true; el.hidden = true; saveDraft(); $("q").focus(); return; }
-    if (el.id === "pick-stop") { setStop(S.slot ?? S.pts.length, S.pick); return; }
+    if (el.id === "pick-stop") { if (setStop(S.slot ?? S.pts.length, S.pick) !== false) { S.pick = null; drawPick(); } return; } // scelta fatta: la schedina si chiude, il tocco dopo propone la lettera successiva
     if (el.id === "pick-fav") { const p = S.pick; if (p.stop !== undefined) S.pts.splice(p.stop, 1); S.favForm = { lat: p.lat, lon: p.lon, name: p.auto ? "" : p.name, icon: "stella", color: COLORS[0] }; S.pick = null; drawPick(); if (p.stop !== undefined) { S.route = null; S.savedId = null; layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); } drawFavForm(); return; }
     if (el.id === "pick-del") { clearStop(S.pick.stop); return; }
     if (el.id === "pick-x") { S.pick = null; drawPick(); return; }

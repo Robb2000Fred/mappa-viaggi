@@ -4,7 +4,7 @@ La mia mappa per i viaggi: una pagina sola, senza account. Online su https://rob
 
 ## Cosa fa
 
-- **Tappe con un tocco**: tocchi la mappa e il punto diventa A, il tocco dopo B, poi C… Ogni tappa ha una scheda con "★ Preferito, non tappa" e "Togli". Toccando una lettera nella barra la sposti.
+- **Tappe con un tocco**: tocchi la mappa e scegli "Tappa A", "★ Preferito" o ✕ per annullare; il tocco dopo propone B, poi C… Toccando una lettera nella barra la sposti.
 - **Cerca** (in alto): suggerimenti mentre scrivi (Photon), con Nominatim come riserva; dal risultato fai una tappa o un preferito.
 - **Percorsi**: a piedi, in bici o in auto, con tracciato, distanza e tempo (OSRM). Nome, salvataggio, riapertura. I percorsi salvati restano disegnati sulla mappa con il nome sulla A. "Collega" mette un giorno (es. 16 nov) accanto al nome. "Copia link" dà un indirizzo che riapre quel percorso su qualsiasi dispositivo.
 - **Preferiti**: posti con nome, icona (hotel, bus, barca, spiaggia…) e colore, sempre visibili sulla mappa.
