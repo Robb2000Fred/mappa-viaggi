@@ -422,7 +422,12 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   const meBtn = ctl(ICO_ME, "Dove sono", toggleWatch);
   // Un tocco per tornare al Programma del Taccuino (si apre a parte: la mappa resta com'è).
   const TACCUINO = "https://claude.ai/artifact/X6RLNLFuniZJgPnfFbr7mG#programma";
-  ctl('<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>', "Programma", () => { window.open(TACCUINO, "_blank", "noopener"); });
+  const progBtn = ctl('<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>', "Programma", () => { window.open(TACCUINO, "_blank", "noopener"); });
+  // Sul telefono la mappa di solito si apre SOPRA il Taccuino: per tornare al programma basta la X, e questo bottone impilerebbe pagine.
+  // Resta sul PC e nell'app aperta dall'icona Home (display-mode standalone), dove il Taccuino non è sotto.
+  const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const showProg = () => { progBtn.getContainer().hidden = isMobile() && !standalone(); };
+  showProg(); mq.addEventListener("change", showProg);
   offlineBase();
   meBtn.getContainer().setAttribute("aria-pressed", "false");
   let watchId = null, firstFix = true;
