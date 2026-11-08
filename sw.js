@@ -26,6 +26,8 @@ self.addEventListener("fetch", e => {
     // Pezzi di mappa: prima la memoria, poi la rete (e ogni pezzo visto resta in memoria).
     e.respondWith(caches.open(TILES).then(async c => {
       const hit = await c.match(u.href); if (hit) return hit;
+      const old = await caches.match(u.href, { cacheName: "tiles-v1" }).catch(() => undefined); // migrazione interrotta: uso il vecchio e lo copio qui
+      if (old) { e.waitUntil(c.put(u.href, old.clone()).catch(() => {})); return old; }
       try { const r = await fetch(e.request); if (r.ok || r.type === "opaque") { const copy = r.clone(); e.waitUntil(c.put(u.href, copy).catch(() => {})); } return r; }
       catch { return Response.error(); }
     }));

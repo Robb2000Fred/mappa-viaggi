@@ -284,7 +284,11 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   const LS = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+    del(k) { try { localStorage.removeItem(k); return true; } catch { return false; } },
   };
+  // I dati stanno su UNA chiave sola (mappa-dati): un salvataggio o riesce tutto o niente. Le tre chiavi vecchie si leggono solo finché non c'è quella nuova.
+  const OLD_KEYS = ["mappa-percorsi", "mappa-preferiti", "mappa-del"];
+  const readDisk = () => { const d = LS.get("mappa-dati", null); return d && typeof d === "object" ? { routes: Array.isArray(d.routes) ? d.routes : [], favs: Array.isArray(d.favs) ? d.favs : [], del: d.del && typeof d.del === "object" ? d.del : {} } : { routes: LS.get(OLD_KEYS[0], []), favs: LS.get(OLD_KEYS[1], []), del: LS.get(OLD_KEYS[2], {}) }; };
   const MODES = {
     piedi: { label: "A piedi", osrm: "routed-foot/route/v1/foot" },
     bici: { label: "In bici", osrm: "routed-bike/route/v1/bike" },
@@ -331,11 +335,12 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
 
   // Percorsi salvati prima avevano solo A e B: li porto al formato a tappe.
   const upgrade = it => { if (!it.pts && it.A && it.B) { it.pts = [it.A, it.B]; delete it.A; delete it.B; } if (!it.mod) it.mod = it.at || now(); return it; };
+  const D0 = readDisk();
   const S = { mode: LS.get("mappa-mezzo", "piedi"), pts: [], slot: null, route: null, savedId: null, draftName: null, pendingDate: "",
-    routes: LS.get("mappa-percorsi", []).map(upgrade), favs: LS.get("mappa-preferiti", []).map(upgrade), del: LS.get("mappa-del", {}),
+    routes: D0.routes.map(upgrade), favs: D0.favs.map(upgrade), del: D0.del,
     pick: null, favForm: null, cal: null, codice: LS.get("mappa-codice", ""), syncState: "", syncAt: "" };
   if (!MODES[S.mode]) S.mode = "piedi";
-  const persist = () => { const a = LS.set("mappa-percorsi", S.routes), b = LS.set("mappa-preferiti", S.favs), c = LS.set("mappa-del", S.del); dirty = true; return a && b && c; };
+  const persist = () => { const ok = LS.set("mappa-dati", { v: 1, routes: S.routes, favs: S.favs, del: S.del }); dirty = true; return ok; };
   const NO_SAVE = "Non salvato sul dispositivo: la memoria del browser è piena o bloccata";
 
   let toastTimer;
@@ -344,24 +349,26 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   /* ---------- Tendina rotonda (stile-fred) ---------- */
   const chiudiTendine = fuori => document.querySelectorAll(".tendina.aperta").forEach(w => { if (w !== fuori) w.chiudi(); });
   document.addEventListener("pointerdown", e => { const w = e.target.closest && e.target.closest(".tendina"); chiudiTendine(w); });
+  let tendinaN = 0;
   function tendine(root) {
     root.querySelectorAll("select.input:not([data-tendina])").forEach(sel => {
       sel.dataset.tendina = "1"; sel.tabIndex = -1;
       const wrap = document.createElement("div"); wrap.className = "tendina";
       sel.replaceWith(wrap); wrap.append(sel);
       const box = document.createElement("button"); box.type = "button"; box.className = "tendina-box";
-      box.setAttribute("aria-haspopup", "listbox"); box.setAttribute("aria-expanded", "false");
+      box.setAttribute("role", "combobox"); box.setAttribute("aria-haspopup", "listbox"); box.setAttribute("aria-expanded", "false");
       if (sel.id) { box.id = sel.id; sel.removeAttribute("id"); }
       const list = document.createElement("ul"); list.className = "tendina-lista"; list.setAttribute("role", "listbox"); list.hidden = true;
+      list.id = `${box.id || "tendina"}-lista-${++tendinaN}`; box.setAttribute("aria-controls", list.id);
       wrap.append(box, list);
       let att = -1;
       const sync = () => { box.textContent = sel.options[sel.selectedIndex]?.text || ""; };
-      const evid = i => { att = i; [...list.children].forEach((li, k) => li.classList.toggle("attiva", k === i)); list.children[i]?.scrollIntoView({ block: "nearest" }); };
-      const chiudi = wrap.chiudi = () => { wrap.classList.remove("aperta"); list.hidden = true; box.setAttribute("aria-expanded", "false"); };
+      const evid = i => { att = i; [...list.children].forEach((li, k) => li.classList.toggle("attiva", k === i)); list.children[i]?.scrollIntoView({ block: "nearest" }); if (list.children[i]) box.setAttribute("aria-activedescendant", list.children[i].id); };
+      const chiudi = wrap.chiudi = () => { wrap.classList.remove("aperta"); list.hidden = true; box.setAttribute("aria-expanded", "false"); box.removeAttribute("aria-activedescendant"); };
       const scegli = i => { if (i >= 0 && i !== sel.selectedIndex) { sel.selectedIndex = i; sel.dispatchEvent(new Event("change", { bubbles: true })); } sync(); chiudi(); box.focus(); };
       const apri = () => {
         chiudiTendine(wrap);
-        list.innerHTML = [...sel.options].map((o, i) => `<li role="option" data-i="${i}" aria-selected="${i === sel.selectedIndex}"></li>`).join("");
+        list.innerHTML = [...sel.options].map((o, i) => `<li role="option" id="${list.id}-${i}" data-i="${i}" aria-selected="${i === sel.selectedIndex}"></li>`).join("");
         [...sel.options].forEach((o, i) => { list.children[i].textContent = o.text; });
         wrap.classList.add("aperta"); list.hidden = false; box.setAttribute("aria-expanded", "true"); evid(sel.selectedIndex);
       };
@@ -437,12 +444,13 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   function openSheet(title, focusId) {
     $("sheet-title").textContent = title || "Mappa Viaggi";
     const panel = $("panel"); panel.inert = false; panel.classList.add("open");
-    if (!panel.contains(document.activeElement)) sheetOpener = document.activeElement;
+    const ae = document.activeElement; if (ae && ae !== document.body && !panel.contains(ae)) sheetOpener = ae;
     setTimeout(() => { const el = (focusId && $(focusId)) || $("sheet-close"); if (el) { el.scrollIntoView({ block: "center" }); el.focus({ preventScroll: true }); } }, 60);
   }
   function closeSheet() {
     const panel = $("panel"); panel.classList.remove("open"); panel.inert = isMobile();
-    if (panel.inert && panel.contains(document.activeElement)) { const t = sheetOpener && document.contains(sheetOpener) ? sheetOpener : ($("bar-menu") || document.body); t.focus({ preventScroll: true }); }
+    const ae = document.activeElement; // se il pulsante premuto è sparito (es. "Salva" del modulo), il focus è già sul body: lo riporto comunque a chi ha aperto
+    if (panel.inert && (!ae || ae === document.body || panel.contains(ae))) { const t = sheetOpener && document.contains(sheetOpener) ? sheetOpener : ($("bar-menu") || document.body); t.focus({ preventScroll: true }); }
   }
   $("panel").inert = isMobile();
   function placePick() { const home = isMobile() ? $("float") : $("pick-home"); if ($("pick").parentElement !== home) home.append($("pick")); }
@@ -522,6 +530,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     $("stops").innerHTML = rows.join("");
   }
   function setStop(i, p) {
+    if (i >= S.pts.length && S.pts.length >= 26) { toast("Hai già 26 tappe"); return; } // vale per tocco, ricerca e GPS
     const pt = { lat: p.lat, lon: p.lon, name: p.name, auto: !!p.auto };
     if (i >= S.pts.length) S.pts.push(pt); else S.pts[i] = pt;
     S.savedId = null; S.route = null; layers.route.clearLayers(); S.slot = null;
@@ -562,9 +571,11 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   function drawSaved() {
     layers.saved.clearLayers();
     S.routes.forEach(it => {
-      if (it.id === S.savedId) return;
-      L.polyline(it.coords, { color: "#fff", weight: 8, opacity: .85 }).addTo(layers.saved);
-      L.polyline(it.coords, { color: "#D08A75", weight: 4 }).addTo(layers.saved);
+      if (it.id === S.savedId || !Array.isArray(it.pts)) return;
+      if (Array.isArray(it.coords) && it.coords.length) { // un percorso arrivato senza tracciato (dato rovinato) non deve bloccare la pagina
+        L.polyline(it.coords, { color: "#fff", weight: 8, opacity: .85 }).addTo(layers.saved);
+        L.polyline(it.coords, { color: "#D08A75", weight: 4 }).addTo(layers.saved);
+      }
       it.pts.forEach((p, i) => mk(p, pinHtml(i, it.pts.length, i === 0 ? it.name : "", i === 0 && it.date), 30).on("click", () => openRoute(it)).addTo(layers.saved));
     });
   }
@@ -734,8 +745,9 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
       }
       // Unione con lo stato ATTUALE (non con l'istantanea inviata): una modifica fatta nel frattempo resta, ed è ancora "dirty".
       merged = merge({ routes: S.routes, favs: S.favs, del: S.del }, merged);
-      S.routes = merged.routes; S.favs = merged.favs; S.del = merged.del; const wasDirty = dirty; persist(); dirty = wasDirty;
-      S.syncState = "ok"; S.syncAt = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+      S.routes = merged.routes; S.favs = merged.favs; S.del = merged.del; const wasDirty = dirty, saved = persist(); dirty = wasDirty;
+      S.syncState = saved ? "ok" : "nosave"; S.syncAt = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+      if (!saved) toast(NO_SAVE);
       if (S.savedId && !S.routes.find(x => x.id === S.savedId)) S.savedId = null;
       drawRoutes(); drawFavs(); drawSaved(); drawEnds(); drawResult(); drawBar();
     } catch { if (gen === conn) S.syncState = "err"; }
@@ -753,11 +765,14 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
         <button class="btn wide" type="button" id="sync-join">Collega con questo codice</button></div>`;
       return;
     }
-    const st = S.syncState === "ok" ? `<span class="chip ok">Sincronizzato${S.syncAt ? ` · ${esc(S.syncAt)}` : ""}</span>` : S.syncState === "err" ? `<span class="chip err">Non raggiungibile</span>` : `<span class="meta">Sincronizzo…</span>`;
+    const st = S.syncState === "ok" ? `<span class="chip ok">Sincronizzato${S.syncAt ? ` · ${esc(S.syncAt)}` : ""}</span>` : S.syncState === "err" ? `<span class="chip err">Non raggiungibile</span>` : S.syncState === "nosave" ? `<span class="chip err">Scaricato, ma non salvato sul dispositivo</span>` : `<span class="meta">Sincronizzo…</span>`;
     box.innerHTML = `<div class="card stack"><span class="lbl-s">Codice famiglia</span><b class="code">${esc(S.codice)}</b>
       <div class="row">${st}<button class="btn small" type="button" id="sync-copy">Copia</button><button class="btn small" type="button" id="sync-now">Aggiorna</button><button class="btn small danger" type="button" id="sync-off">Scollega</button></div></div>`;
   }
-  function setCodice(c) { conn++; clearTimeout(pushTimer); S.codice = c; LS.set("mappa-codice", c); S.syncState = ""; S.syncAt = ""; drawSync(); if (c) { dirty = true; pull(); } }
+  function setCodice(c) {
+    if (!(c ? LS.set("mappa-codice", c) : LS.del("mappa-codice"))) { toast(c ? "Codice non salvato sul dispositivo: la memoria del browser è piena o bloccata" : "Non riesco a scollegare: la memoria del browser è bloccata"); return; }
+    conn++; clearTimeout(pushTimer); S.codice = c; S.syncState = ""; S.syncAt = ""; drawSync(); if (c) { dirty = true; pull(); }
+  }
 
   /* ---------- Link e copia ---------- */
   async function copy(text) {
@@ -773,8 +788,9 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (k === "r" && parts.length >= 5) {
       const [mode, name, date] = parts.slice(0, 3).map(dec);
       const pts = parts.slice(3).map(s => { const [la, lo, nm] = s.split(",").map(dec); return { lat: num(la), lon: num(lo), name: nm || "Tappa" }; });
-      if (!MODES[mode] || pts.some(p => p.lat === null || p.lon === null)) return;
-      const same = S.routes.find(x => x.mode === mode && x.pts.length === pts.length && x.pts.every((p, j) => p.lat === pts[j].lat && p.lon === pts[j].lon));
+      if (!MODES[mode] || pts.length > 26 || pts.some(p => p.lat === null || p.lon === null)) return;
+      const same = S.routes.find(x => x.mode === mode && (x.name || "") === name && (x.date || "") === (isoOk(date) ? date : "") && x.pts.length === pts.length
+        && x.pts.every((p, j) => p.lat === pts[j].lat && p.lon === pts[j].lon && String(p.name ?? "") === pts[j].name));
       if (same) { openRoute(same); return; }
       routeToken++; S.pick = null; drawPick(); layers.route.clearLayers();
       S.mode = mode; syncMode(); S.pts = pts; S.slot = null; S.savedId = null; S.draftName = name; S.route = null; S.pendingDate = isoOk(date) ? date : "";
@@ -859,13 +875,15 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); });
   window.addEventListener("storage", e => {
     if (!e.key || e.key === "mappa-codice") { const c = LS.get("mappa-codice", ""); if (c !== S.codice) { conn++; clearTimeout(pushTimer); S.codice = c; S.syncState = ""; S.syncAt = ""; drawSync(); if (c) { dirty = true; pull(); } } if (e.key) return; }
-    if (e.key && !["mappa-percorsi", "mappa-preferiti", "mappa-del"].includes(e.key)) return;
+    if (e.key && e.key !== "mappa-dati") return;
     // Un'altra scheda ha salvato: unisco (non sostituisco), così nessuna delle due perde il suo salvataggio.
-    const disk = { routes: LS.get("mappa-percorsi", []), favs: LS.get("mappa-preferiti", []), del: LS.get("mappa-del", {}) };
-    const m = merge({ routes: S.routes, favs: S.favs, del: S.del }, disk);
-    const changed = canon(m) !== canon(merge(disk, {}));
+    const disk = readDisk(), mem = { routes: S.routes, favs: S.favs, del: S.del };
+    const m = merge(mem, disk);
+    const memChanged = canon(m) !== canon(merge(mem, {}));
+    const diskChanged = canon([m.routes, m.favs, m.del]) !== canon([disk.routes, disk.favs, disk.del]); // confronto con ciò che è SCRITTO davvero, non con la sua copia ripulita
     S.routes = m.routes; S.favs = m.favs; S.del = m.del;
-    if (changed) { const wasDirty = dirty; persist(); dirty = wasDirty || true; push(); } // riscrivo solo se l'unione aggiunge qualcosa: niente rimbalzi
+    if (diskChanged) { if (!persist()) toast(NO_SAVE); push(); } // riscrivo solo se sul disco manca qualcosa: niente rimbalzi
+    else if (memChanged) { dirty = true; push(); } // la novità è già sul disco ma non ancora sul server
     if (S.savedId && !S.routes.find(x => x.id === S.savedId)) S.savedId = null;
     drawRoutes(); drawFavs(); drawSaved(); drawEnds(); drawResult(); drawBar();
   });
@@ -874,7 +892,8 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
 
   /* ---------- Avvio ---------- */
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
-  $("mezzo").value = S.mode; tendine($("panel")); persist(); placePick();
+  { const m = merge({ routes: S.routes, favs: S.favs, del: S.del }, {}); S.routes = m.routes; S.favs = m.favs; S.del = m.del; } // le cancellazioni ricordate valgono anche sui dati letti dal disco
+  $("mezzo").value = S.mode; tendine($("panel")); if (persist()) OLD_KEYS.forEach(LS.del); placePick();
   drawStops(); drawRoutes(); drawFavs(); drawSaved(); drawResult(); drawSync(); drawBar();
   applyHash(); pull();
 })();
