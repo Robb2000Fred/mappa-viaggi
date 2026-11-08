@@ -378,6 +378,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   /* ---------- Mappa ---------- */
   const view = LS.get("mappa-vista", { lat: 42.5, lon: 12.5, z: 6 });
   const map = L.map("map", { zoomControl: true, tap: false }).setView([view.lat, view.lon], view.z);
+  map.attributionControl.setPrefix(false);
   const makeOsm = () => L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, maxNativeZoom: navigator.onLine === false ? 16 : 19, className: "osm", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' });
   let osm = makeOsm();
   const refreshOsm = () => { if (map.hasLayer(osm)) { map.removeLayer(osm); osm = makeOsm().addTo(map); } else osm = makeOsm(); toast(navigator.onLine === false ? "Sei senza internet: vedi la mappa salvata" : "Internet è tornato"); if (navigator.onLine) pull(); };
