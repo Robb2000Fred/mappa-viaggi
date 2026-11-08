@@ -4,19 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mappa Viaggi</title>
-<meta name="description" content="La mia mappa per i viaggi: percorsi da un punto a un altro e punti salvati.">
+<meta name="description" content="La mia mappa per i viaggi: percorsi da un punto a un altro e posti preferiti.">
 <meta name="robots" content="noindex">
 <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 22s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z" fill="%23B5634D"/><circle cx="12" cy="10" r="2.6" fill="%23fff"/></svg>'>
 <link rel="stylesheet" href="fonts/poppins.css">
 <link rel="stylesheet" href="vendor/leaflet.min.css">
 <style>
-/* Layout: barra in alto con le schede, pannello a sinistra (percorsi / punti), mappa a destra a tutto schermo.
-   Palette: la stessa del Taccuino di viaggio (sabbia, terracotta, salvia, marrone scuro). */
+/* Pannello a sinistra (ricerca, percorso, elenchi), mappa a destra. Palette del Taccuino di viaggio. */
 :root {
   --bg: #F5F1EB; --surface: #FFFFFF; --ink: #3E3B36; --muted: #6F675D; --line: #E6DED2; --sand: #C7B8A2;
   --accent: #B5634D; --accent-ink: #FFFFFF; --accent-soft: #F4E4DD;
   --ok: #4C7A3C; --ok-soft: #E5EFDE; --alert: #A63D2F; --alert-soft: #F6DED8; --todo: #8A6A3E; --todo-soft: #F6E7CF;
-  --sage: #7FA36E; --blue: #2F6DB5;
   --f-body: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
   --r-card: 16px;
 }
@@ -40,38 +38,40 @@ h2 { font-size: 20px; }
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 [hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 .app { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100%; }
-.topbar { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--line); background: var(--bg);
+.topbar { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--line); background: var(--bg); min-width: 0;
   padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); }
-.brand { font-weight: 600; font-size: 20px; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.tabs { display: flex; gap: 4px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-@media (max-width: 480px) { .brand { display: none; } .tabs { justify-content: center; } }
-.tabs::-webkit-scrollbar { display: none; }
-.tab { border: 0; background: transparent; color: var(--muted); padding: 9px 14px; border-radius: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; }
-.tab:hover { background: var(--surface); color: var(--ink); }
-.tab[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
+.brand { font-weight: 600; font-size: 20px; white-space: nowrap; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .icon-btn { flex: none; width: 44px; height: 44px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; font-size: 18px; }
 .icon-btn:hover { border-color: var(--accent); }
 
 .body { display: grid; grid-template-columns: 400px minmax(0, 1fr); min-height: 0; }
 .panel { overflow-y: auto; display: grid; gap: 14px; align-content: start; min-width: 0; border-right: 1px solid var(--line);
-  padding: 14px max(16px, env(safe-area-inset-left, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); }
+  padding: 0 max(16px, env(safe-area-inset-left, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); }
 .map-wrap { position: relative; min-height: 0; }
 #map { position: absolute; inset: 0; background: var(--line); }
 @media (max-width: 760px) {
-  .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 52vh minmax(0, 1fr); }
+  .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: 50vh minmax(0, 1fr); }
   .map-wrap { order: -1; }
   .panel { border-right: 0; border-top: 1px solid var(--line); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 }
+
+/* Ricerca, sempre in alto */
+.search { position: sticky; top: 0; z-index: 10; background: var(--bg); padding: 14px 0 4px; display: grid; gap: 8px; }
+.search-row { position: relative; }
+.search-row .input { padding-left: 44px; padding-right: 44px; }
+.search-row svg { position: absolute; left: 14px; top: 50%; width: 20px; height: 20px; margin-top: -10px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.search-row .x { position: absolute; right: 4px; top: 4px; width: 38px; height: 38px; border: 0; background: transparent; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 16px; min-width: 0; }
 .stack { display: grid; gap: 10px; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .meta { color: var(--muted); font-size: 14px; }
-.empty { color: var(--muted); margin: 0; padding: 8px 0; }
+.empty { color: var(--muted); margin: 0; padding: 4px 0; }
 .field { display: grid; gap: 4px; min-width: 0; }
-.field label { font-size: 13px; color: var(--muted); font-weight: 600; }
+.field label, .lbl-s { font-size: 13px; color: var(--muted); font-weight: 600; }
 .input { width: 100%; min-height: 46px; padding: 10px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); }
 .input:focus { border-color: var(--accent); outline: none; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 12px 24px; font-size: 17px;
@@ -81,19 +81,20 @@ button, input, select { font: inherit; color: inherit; }
 .btn.wide { width: 100%; }
 .btn.small { min-height: 44px; padding: 8px 14px; font-size: 15px; }
 .btn.danger { color: var(--alert); }
-.btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
 .chip { display: inline-flex; align-items: center; padding: 3px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
 .chip.ok { background: var(--ok-soft); color: var(--ok); }
+.x { width: 44px; height: 46px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); cursor: pointer; color: var(--muted); font-size: 18px; }
+.x:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Partenza e arrivo */
-.slot { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; align-items: end; padding: 8px; border-radius: 14px; border: 1.5px solid transparent; }
+.slot { display: grid; grid-template-columns: 40px minmax(0, 1fr) 44px; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 14px; border: 1.5px solid transparent; }
 .slot.active { border-color: var(--accent); background: var(--accent-soft); }
-.badge { width: 40px; height: 40px; border-radius: 50%; border: 3px solid #fff; color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); margin-bottom: 3px; }
+.slot .name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500; }
+.slot .name.ph { color: var(--muted); font-weight: 400; }
+.badge { width: 40px; height: 40px; border-radius: 50%; border: 3px solid #fff; color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
 .badge.a { background: #4C7A3C; }
 .badge.b { background: #A63D2F; }
-.x { width: 44px; height: 46px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); cursor: pointer; color: var(--muted); }
-.x:hover { border-color: var(--accent); color: var(--accent); }
-.results { list-style: none; margin: -8px 0 0; padding: 6px; border: 1.5px solid var(--accent); border-radius: 12px; background: var(--surface); display: grid; gap: 2px; }
+.results { list-style: none; margin: 0; padding: 6px; border: 1.5px solid var(--accent); border-radius: 12px; background: var(--surface); display: grid; gap: 2px; }
 .results li.meta { padding: 8px 10px; }
 .res { all: unset; box-sizing: border-box; display: grid; width: 100%; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
 .res:hover, .res:focus-visible { background: var(--accent-soft); outline: none; }
@@ -104,11 +105,25 @@ button, input, select { font: inherit; color: inherit; }
 .fig span { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
 .item { display: grid; gap: 10px; }
 .item.current { border-color: var(--accent); }
-.item-head { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.item-head { display: flex; gap: 12px; align-items: center; min-width: 0; }
 .item b { overflow-wrap: anywhere; }
 .linkbox { font-size: 13px; }
+.sec-title { display: flex; align-items: baseline; gap: 8px; }
+.sec-title .meta { font-weight: 500; }
 
-/* Tendina rotonda collegata al box (stile-fred) */
+/* Icone e colori dei preferiti */
+.icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 6px; }
+.ico { width: 100%; aspect-ratio: 1; min-height: 48px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; }
+.ico svg, .swatch-row svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico:hover { border-color: var(--accent); }
+.ico[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.swatch-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.sw { width: 36px; height: 36px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; box-shadow: inset 0 0 0 2px var(--surface); }
+.sw[aria-checked="true"] { border-color: var(--ink); }
+.fav-dot { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
+.fav-dot svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Tendina rotonda (stile-fred) */
 .tendina { position: relative; }
 .tendina select { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
 .tendina-box { width: 100%; min-height: 46px; padding: 10px 44px 10px 16px; border-radius: 16px; border: 1.5px solid var(--line);
@@ -125,16 +140,35 @@ button, input, select { font: inherit; color: inherit; }
 .tendina-lista li:hover, .tendina-lista li.attiva { background: var(--accent-soft); }
 .tendina-lista li[aria-selected="true"] { color: var(--accent); font-weight: 600; }
 
+/* Calendario in finestra (Collega a un giorno) */
+dialog { border: 0; border-radius: 20px; padding: 0; background: var(--surface); color: var(--ink); max-width: min(92vw, 380px); width: 100%; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); }
+dialog::backdrop { background: rgba(30, 20, 10, .55); }
+.cal { padding: 18px; display: grid; gap: 12px; }
+.cal-head { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 6px; }
+.cal-head b { text-align: center; font-size: 17px; text-transform: capitalize; }
+.cal-nav { width: 44px; height: 44px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); cursor: pointer; font-size: 18px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-grid .wd { text-align: center; font-size: 12px; color: var(--muted); font-weight: 600; padding: 4px 0; }
+.day { min-height: 44px; border-radius: 10px; border: 1.5px solid transparent; background: transparent; cursor: pointer; font-weight: 500; }
+.day:hover { border-color: var(--accent); }
+.day.out { color: var(--muted); opacity: .5; }
+.day.today { border-color: var(--line); }
+.day[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
 /* Sulla mappa */
 .mk { background: none; border: 0; }
+.mk-wrap { position: relative; display: block; width: 30px; height: 30px; }
 .pin { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #fff; font: 700 14px var(--f-body); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); }
 .pin.a { background: #4C7A3C; }
 .pin.b { background: #A63D2F; }
-.dot { display: block; width: 18px; height: 18px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); }
-.dot.inline { flex: none; width: 20px; height: 20px; border-color: var(--surface); box-shadow: none; }
-.dot.evento { background: #B5634D; }
-.dot.attivita { background: #7FA36E; }
-.dot.altro { background: #8A6A3E; }
+.rlabel, .flabel { position: absolute; left: 36px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font: 600 13px/1.2 var(--f-body); background: #F5F1EB; color: #3E3B36; border: 1.5px solid #3E3B36; border-radius: 8px; padding: 3px 8px; box-shadow: 0 1px 4px rgba(0, 0, 0, .2); }
+.rdate { display: inline-grid; justify-items: center; line-height: 1; padding: 3px 6px; border-radius: 6px; background: #B5634D; color: #fff; margin: -2px -4px -2px 0; }
+.rdate b { font-size: 14px; font-weight: 700; }
+.rdate span { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.fpin { display: grid; place-items: center; width: 34px; height: 34px; margin: -2px; border-radius: 50%; color: #fff; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); }
+.fpin svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.dot { display: block; width: 18px; height: 18px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); background: #3E3B36; }
 .dot.pending { background: #fff; border: 3px dashed #3E3B36; }
 .leaflet-tooltip.lbl { font: 600 13px var(--f-body); background: #F5F1EB; color: #3E3B36; border: 1.5px solid #3E3B36; border-radius: 8px; padding: 3px 8px; box-shadow: none; }
 .leaflet-tooltip.lbl::before { display: none; }
@@ -156,45 +190,45 @@ button, input, select { font: inherit; color: inherit; }
 <div class="app">
   <header class="topbar">
     <b class="brand">Mappa Viaggi</b>
-    <nav class="tabs" aria-label="Sezioni">
-      <button class="tab" type="button" data-tab="percorsi" aria-current="page">Percorsi</button>
-      <button class="tab" type="button" data-tab="punti">Punti</button>
-    </nav>
     <button class="icon-btn" type="button" id="fs" aria-label="Schermo intero" title="Schermo intero">⛶</button>
   </header>
   <div class="body">
     <aside class="panel" id="panel">
-      <section id="sec-percorsi" class="stack" aria-label="Percorsi">
-        <div class="field"><label for="mezzo">Come</label>
-          <select class="input" id="mezzo"><option value="piedi">A piedi</option><option value="bici">In bici</option><option value="auto">In auto</option></select></div>
-        <div class="slot active" id="slot-A">
-          <button class="badge a" type="button" data-pick="A" aria-label="Partenza: scegli sulla mappa">A</button>
-          <div class="field"><label for="q-A">Partenza</label><input class="input" id="q-A" data-q="A" placeholder="Cerca un posto o tocca la mappa" autocomplete="off"></div>
-          <button class="x" type="button" id="clear-A" data-clear="A" aria-label="Togli la partenza" hidden>✕</button>
+      <div class="search">
+        <div class="search-row">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input class="input" id="q" placeholder="Cerca un posto" aria-label="Cerca un posto" autocomplete="off">
+          <button class="x" type="button" id="q-clear" aria-label="Cancella la ricerca" hidden>✕</button>
         </div>
-        <ul class="results" id="res-A" hidden></ul>
-        <div class="slot" id="slot-B">
-          <button class="badge b" type="button" data-pick="B" aria-label="Arrivo: scegli sulla mappa">B</button>
-          <div class="field"><label for="q-B">Arrivo</label><input class="input" id="q-B" data-q="B" placeholder="Cerca un posto o tocca la mappa" autocomplete="off"></div>
-          <button class="x" type="button" id="clear-B" data-clear="B" aria-label="Togli l'arrivo" hidden>✕</button>
-        </div>
-        <ul class="results" id="res-B" hidden></ul>
-        <div class="row"><button class="btn small" type="button" id="gps-slot">La mia posizione</button><button class="btn small" type="button" id="swap">⇄ Inverti</button></div>
-        <div id="result"></div>
-        <h2 id="routes-title">I miei percorsi</h2>
-        <div id="routes" class="stack"></div>
-      </section>
-      <section id="sec-punti" class="stack" aria-label="Punti" hidden>
-        <p class="meta" id="pt-hint" style="margin:0">Tocca la mappa dove vuoi segnare il punto.</p>
-        <div id="pt-form"></div>
-        <h2>I miei punti</h2>
-        <div id="points" class="stack"></div>
-      </section>
+        <ul class="results" id="res" hidden></ul>
+      </div>
+      <div id="pick"></div>
+      <div id="favform"></div>
+      <button class="btn small" type="button" id="new-route">＋ Nuovo percorso</button>
+      <div class="field"><label for="mezzo">Come</label>
+        <select class="input" id="mezzo"><option value="piedi">A piedi</option><option value="bici">In bici</option><option value="auto">In auto</option></select></div>
+      <div class="slot" id="slot-A">
+        <button class="badge a" type="button" data-pick="A" aria-label="Partenza: scegli sulla mappa">A</button>
+        <div class="stack" style="gap:0"><span class="lbl-s">Partenza</span><span class="name ph" id="name-A">Tocca la mappa o cerca un posto</span></div>
+        <button class="x" type="button" data-clear="A" aria-label="Togli la partenza" hidden>✕</button>
+      </div>
+      <div class="slot" id="slot-B">
+        <button class="badge b" type="button" data-pick="B" aria-label="Arrivo: scegli sulla mappa">B</button>
+        <div class="stack" style="gap:0"><span class="lbl-s">Arrivo</span><span class="name ph" id="name-B">Tocca la mappa o cerca un posto</span></div>
+        <button class="x" type="button" data-clear="B" aria-label="Togli l'arrivo" hidden>✕</button>
+      </div>
+      <div class="row"><button class="btn small" type="button" id="gps-slot">La mia posizione</button><button class="btn small" type="button" id="swap">⇄ Inverti</button></div>
+      <div id="result"></div>
+      <div class="sec-title"><h2>Percorsi</h2><span class="meta" id="routes-n"></span></div>
+      <div id="routes" class="stack"></div>
+      <div class="sec-title"><h2>Preferiti</h2><span class="meta" id="favs-n"></span></div>
+      <div id="favs" class="stack"></div>
       <div id="linkbox" class="field" hidden><label for="linkbox-in">Link da copiare</label><input class="input linkbox" id="linkbox-in" readonly></div>
     </aside>
     <div class="map-wrap"><div id="map" aria-label="Mappa"></div></div>
   </div>
 </div>
+<dialog id="cal" aria-label="Scegli il giorno"><div class="cal" id="cal-body"></div></dialog>
 <div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
 
 <script src="vendor/leaflet.min.js"></script>
@@ -207,15 +241,46 @@ button, input, select { font: inherit; color: inherit; }
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { toast("Non riesco a salvare su questo dispositivo"); } },
   };
   const MODES = {
-    piedi: { label: "A piedi", osrm: "routed-foot/route/v1/foot", g: "walking", om: "pedestrian" },
-    bici: { label: "In bici", osrm: "routed-bike/route/v1/bike", g: "bicycling", om: "bicycle" },
-    auto: { label: "In auto", osrm: "routed-car/route/v1/driving", g: "driving", om: "vehicle" },
+    piedi: { label: "A piedi", osrm: "routed-foot/route/v1/foot" },
+    bici: { label: "In bici", osrm: "routed-bike/route/v1/bike" },
+    auto: { label: "In auto", osrm: "routed-car/route/v1/driving" },
   };
-  const CATS = { evento: "Evento", attivita: "Attività", altro: "Altro" };
+  const ICONS = {
+    hotel: ["Hotel", '<path d="M3 18V8M3 14h18v4M21 14v-3a2 2 0 0 0-2-2h-8v5"/><circle cx="7" cy="10" r="2"/>'],
+    casa: ["Casa", '<path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/>'],
+    ristorante: ["Ristorante", '<path d="M7 3v18M5 3v5a2 2 0 0 0 4 0V3M17 3c-2 0-3 3-3 6v3h3M17 3v18"/>'],
+    bar: ["Bar", '<path d="M5 8h11v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4zM16 9h2a2 2 0 0 1 0 4h-2M4 21h14"/>'],
+    spiaggia: ["Spiaggia", '<circle cx="12" cy="9" r="3.5"/><path d="M12 2v2M5 9H3M21 9h-2M6.5 3.5 8 5M17.5 3.5 16 5M2 19c3-2 5-2 8 0s5 2 8 0 3-1 4 0"/>'],
+    montagna: ["Montagna", '<path d="M3 19 10 7l3 5 2-3 6 10z"/>'],
+    panorama: ["Panorama", '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'],
+    museo: ["Museo", '<path d="M3 9l9-5 9 5M4 9h16M6 9v8M10 9v8M14 9v8M18 9v8M3 20h18M3 17h18"/>'],
+    cinema: ["Cinema", '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 5v4M12 5v4M17 5v4"/>'],
+    negozio: ["Negozio", '<path d="M4 9l1.5-5h13L20 9M4 9h16v11H4zM10 20v-6h4v6"/>'],
+    bus: ["Bus", '<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M7 18v2M17 18v2"/><circle cx="8" cy="14.5" r="1"/><circle cx="16" cy="14.5" r="1"/>'],
+    treno: ["Treno", '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 10h14M8 17l-2 4M16 17l2 4"/><circle cx="9" cy="13.5" r="1"/><circle cx="15" cy="13.5" r="1"/>'],
+    auto: ["Auto", '<path d="M4 16v-4l2-5h12l2 5v4H4zM4 13h16M7 19v-3M17 19v-3"/>'],
+    barca: ["Barca", '<path d="M4 15h16l-2 4H6zM6 15V9h12v6M12 5v4"/>'],
+    porto: ["Porto", '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M5 13a7 7 0 0 0 14 0M8 12H5M19 12h-3"/>'],
+    aereo: ["Aereo", '<path d="M3 13l8-2 4-7h2l-2 7 6 2v2l-6-1-2 6h-2l-1-5-6 1z"/>'],
+    parcheggio: ["Parcheggio", '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/>'],
+    salute: ["Farmacia", '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>'],
+    stella: ["Altro", '<path d="m12 3 2.7 5.7 6.3.8-4.6 4.3 1.2 6.2L12 17l-5.6 3 1.2-6.2L3 9.5l6.3-.8z"/>'],
+  };
+  const COLORS = ["#B5634D", "#4C7A3C", "#2F6DB5", "#C9962B", "#7A5BA6", "#2C8C9E", "#C85C8E", "#3E3B36"];
+  const svg = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${(ICONS[k] || ICONS.stella)[1]}</svg>`;
+  const okColor = c => COLORS.includes(c) ? c : COLORS[0];
+  const okIcon = k => ICONS[k] ? k : "stella";
   const fmtKm = m => { m = Number(m) || 0; return m < 950 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`; };
   const fmtMin = s => { const m = Math.round((Number(s) || 0) / 60); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; };
-  const S = { tab: "percorsi", mode: LS.get("mappa-mezzo", "piedi"), A: null, B: null, slot: "A", route: null, savedId: null, draftName: "",
-    routes: LS.get("mappa-percorsi", []), points: LS.get("mappa-punti", []), pending: null };
+  const MESI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+  const isoOk = d => /^\d{4}-\d{2}-\d{2}$/.test(d || "");
+  const parseD = iso => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d); };
+  const isoOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const fmtDay = iso => { const d = parseD(iso); return `${d.getDate()} ${d.toLocaleDateString("it-IT", { month: "long" })}`; };
+  const dateBlock = iso => { const d = parseD(iso); return `<span class="rdate"><b>${d.getDate()}</b><span>${MESI[d.getMonth()]}</span></span>`; };
+
+  const S = { mode: LS.get("mappa-mezzo", "piedi"), A: null, B: null, slot: null, route: null, savedId: null, draftName: "", pendingDate: "",
+    routes: LS.get("mappa-percorsi", []), favs: LS.get("mappa-preferiti", []), pick: null, favForm: null, cal: null };
   if (!MODES[S.mode]) S.mode = "piedi";
 
   let toastTimer;
@@ -266,7 +331,7 @@ button, input, select { font: inherit; color: inherit; }
   let base = LS.get("mappa-base", "mappa");
   (base === "sat" ? sat : osm).addTo(map);
   map.on("moveend", () => { const c = map.getCenter(); LS.set("mappa-vista", { lat: +c.lat.toFixed(5), lon: +c.lng.toFixed(5), z: map.getZoom() }); });
-  const layers = { route: L.layerGroup().addTo(map), ends: L.layerGroup().addTo(map), points: L.layerGroup().addTo(map), me: L.layerGroup().addTo(map), pending: L.layerGroup().addTo(map) };
+  const layers = { saved: L.layerGroup().addTo(map), route: L.layerGroup().addTo(map), favs: L.layerGroup().addTo(map), ends: L.layerGroup().addTo(map), me: L.layerGroup().addTo(map), pick: L.layerGroup().addTo(map) };
   const ICO_ME = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
   const ctl = (html, label, onClick) => {
     const C = L.Control.extend({ onAdd() {
@@ -298,28 +363,12 @@ button, input, select { font: inherit; color: inherit; }
     if (!navigator.geolocation) return no(new Error("no"));
     navigator.geolocation.getCurrentPosition(p => ok({ lat: +p.coords.latitude.toFixed(5), lon: +p.coords.longitude.toFixed(5), name: "La mia posizione" }), no, { enableHighAccuracy: true, timeout: 20000 });
   });
+  const mk = (p, html, size, extra) => L.marker([p.lat, p.lon], { keyboard: false, icon: L.divIcon({ className: "mk", html, iconSize: [size, size], iconAnchor: [size / 2, size / 2] }), ...extra });
 
-  /* ---------- Partenza e arrivo ---------- */
+  /* ---------- Ricerca e posto scelto ---------- */
   const shortName = x => x.name || String(x.display_name || "").split(",")[0] || "Posto scelto";
-  function drawSlots() {
-    for (const k of ["A", "B"]) {
-      $("slot-" + k).classList.toggle("active", S.slot === k);
-      if (S[k]) { $("q-" + k).value = S[k].name; $("clear-" + k).hidden = false; } else { $("clear-" + k).hidden = true; }
-    }
-  }
-  function setSlot(k, p) {
-    S[k] = p; S.savedId = null; S.route = null; layers.route.clearLayers();
-    S.slot = k === "A" ? (S.B ? null : "B") : (S.A ? null : "A");
-    $("res-" + k).hidden = true; drawSlots(); drawEnds(); drawResult(); routeIfReady();
-  }
-  function clearSlot(k) { S[k] = null; S.route = null; S.savedId = null; layers.route.clearLayers(); S.slot = k; $("q-" + k).value = ""; drawSlots(); drawEnds(); drawResult(); }
-  function drawEnds() {
-    layers.ends.clearLayers();
-    for (const k of ["A", "B"]) if (S[k]) L.marker([S[k].lat, S[k].lon], { keyboard: false, icon: L.divIcon({ className: "mk", html: `<span class="pin ${k.toLowerCase()}">${k}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] }) })
-      .addTo(layers.ends).bindTooltip(S[k].name, { direction: "top", offset: [0, -14], className: "lbl" });
-  }
-  async function search(k, q) {
-    const list = $("res-" + k); q = q.trim();
+  async function search(q) {
+    const list = $("res"); q = q.trim();
     if (!q) { list.hidden = true; return; }
     list.hidden = false; list.innerHTML = `<li class="meta">Cerco…</li>`;
     const b = map.getBounds(), vb = `${b.getWest()},${b.getNorth()},${b.getEast()},${b.getSouth()}`;
@@ -328,15 +377,49 @@ button, input, select { font: inherit; color: inherit; }
       const rows = await r.json();
       if (!rows.length) { list.innerHTML = `<li class="meta">Nessun posto trovato con questo nome</li>`; return; }
       list._rows = rows;
-      list.innerHTML = rows.map((x, i) => `<li><button type="button" class="res" data-k="${k}" data-i="${i}"><b>${esc(shortName(x))}</b><span>${esc(x.display_name)}</span></button></li>`).join("");
+      list.innerHTML = rows.map((x, i) => `<li><button type="button" class="res" data-i="${i}"><b>${esc(shortName(x))}</b><span>${esc(x.display_name)}</span></button></li>`).join("");
     } catch { list.innerHTML = `<li class="meta">Ricerca non riuscita: controlla la connessione</li>`; }
   }
-  async function reverseName(k, ll) {
+  async function reverseName(obj) {
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=it&zoom=17&lat=${ll.lat}&lon=${ll.lon}`);
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=it&zoom=17&lat=${obj.lat}&lon=${obj.lon}`);
       const x = await r.json();
-      if (S[k] && S[k].lat === ll.lat && S[k].lon === ll.lon && x && (x.name || x.display_name)) { S[k].name = shortName(x); drawSlots(); drawEnds(); drawResult(); drawRoutes(); }
+      if (x && (x.name || x.display_name) && obj.auto) { obj.name = shortName(x); obj.auto = false; drawSlots(); drawEnds(); drawPick(); drawResult(); }
     } catch { /* il nome resta "lat, lon" */ }
+  }
+  function setPick(p) { S.pick = p; S.favForm = null; drawFavForm(); drawPick(); }
+  function drawPick() {
+    layers.pick.clearLayers(); const p = S.pick, box = $("pick");
+    if (!p) { box.innerHTML = ""; return; }
+    mk(p, `<span class="dot pending"></span>`, 18).addTo(layers.pick);
+    box.innerHTML = `<div class="card stack"><div class="item-head"><b style="flex:1">${esc(p.name)}</b><button class="x" type="button" id="pick-x" aria-label="Chiudi">✕</button></div>
+      <div class="row"><button class="btn small" type="button" id="pick-A">Partenza</button><button class="btn small" type="button" id="pick-B">Arrivo</button>
+        <button class="btn small" type="button" id="pick-fav">★ Preferito</button></div></div>`;
+  }
+
+  /* ---------- Partenza e arrivo ---------- */
+  function drawSlots() {
+    for (const k of ["A", "B"]) {
+      $("slot-" + k).classList.toggle("active", S.slot === k);
+      const n = $("name-" + k), x = $("slot-" + k).querySelector("[data-clear]");
+      if (S[k]) { n.textContent = S[k].name; n.classList.remove("ph"); x.hidden = false; }
+      else { n.textContent = S.slot === k ? "Tocca la mappa…" : "Tocca la mappa o cerca un posto"; n.classList.add("ph"); x.hidden = true; }
+    }
+  }
+  function setSlot(k, p) {
+    S[k] = { lat: p.lat, lon: p.lon, name: p.name, auto: !!p.auto }; S.savedId = null; S.route = null; layers.route.clearLayers();
+    S.slot = null; if (S.pick) { S.pick = null; drawPick(); }
+    drawSlots(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); routeIfReady();
+    if (p.auto) reverseName(S[k]);
+  }
+  function clearSlot(k) { S[k] = null; S.route = null; S.savedId = null; layers.route.clearLayers(); S.slot = null; drawSlots(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); }
+  const pinA = (name, date) => `<span class="mk-wrap"><span class="pin a">A</span>${name ? `<span class="rlabel">${esc(name)}${date ? dateBlock(date) : ""}</span>` : ""}</span>`;
+  const pinB = `<span class="mk-wrap"><span class="pin b">B</span></span>`;
+  function drawEnds() {
+    layers.ends.clearLayers();
+    const saved = S.savedId && S.routes.find(x => x.id === S.savedId);
+    if (S.A) mk(S.A, pinA(saved ? saved.name : "", saved && saved.date), 30, { zIndexOffset: 1000 }).addTo(layers.ends);
+    if (S.B) mk(S.B, pinB, 30, { zIndexOffset: 1000 }).addTo(layers.ends);
   }
 
   /* ---------- Percorso ---------- */
@@ -361,12 +444,18 @@ button, input, select { font: inherit; color: inherit; }
     L.polyline(S.route.coords, { color: "#B5634D", weight: 6 }).addTo(layers.route);
     if (fit) map.fitBounds(L.latLngBounds(S.route.coords), { padding: [40, 40] });
   }
-  const ll = p => `${p.lat},${p.lon}`;
-  const omUrl = (A, B, mode) => `https://omaps.app/route?sll=${ll(A)}&saddr=${encodeURIComponent(A.name)}&dll=${ll(B)}&daddr=${encodeURIComponent(B.name)}&type=${MODES[mode].om}`;
-  const gmUrl = (A, B, mode) => `https://www.google.com/maps/dir/?api=1&origin=${ll(A)}&destination=${ll(B)}&travelmode=${MODES[mode].g}`;
+  function drawSaved() {
+    layers.saved.clearLayers();
+    S.routes.forEach(it => {
+      if (it.id === S.savedId) return;
+      L.polyline(it.coords, { color: "#fff", weight: 8, opacity: .85 }).addTo(layers.saved);
+      L.polyline(it.coords, { color: "#D08A75", weight: 4 }).addTo(layers.saved);
+      mk(it.A, pinA(it.name, it.date), 30).on("click", () => openRoute(it)).addTo(layers.saved);
+      mk(it.B, pinB, 30).on("click", () => openRoute(it)).addTo(layers.saved);
+    });
+  }
   const pageUrl = () => location.origin + location.pathname;
-  const routeLink = it => pageUrl() + "#r=" + [it.mode, it.name, it.A.lat, it.A.lon, it.A.name, it.B.lat, it.B.lon, it.B.name].map(v => encodeURIComponent(v)).join("|");
-  const pointLink = p => pageUrl() + "#p=" + [p.cat, p.name, p.lat, p.lon].map(v => encodeURIComponent(v)).join("|");
+  const routeLink = it => pageUrl() + "#r=" + [it.mode, it.name, it.A.lat, it.A.lon, it.A.name, it.B.lat, it.B.lon, it.B.name, it.date || ""].map(v => encodeURIComponent(v)).join("|");
   function drawResult() {
     const box = $("result"), r = S.route;
     if (!S.A || !S.B || !r) { box.innerHTML = ""; return; }
@@ -375,10 +464,7 @@ button, input, select { font: inherit; color: inherit; }
       <div class="figs"><div class="fig"><span>Distanza</span><b>${esc(fmtKm(r.distance))}</b></div><div class="fig"><span>${esc(m.label)}</span><b>${esc(fmtMin(r.duration))}</b></div></div>
       <div class="field"><label for="rname">Nome del percorso</label><input class="input" id="rname" placeholder="es. Porto-Dune" value="${esc(saved ? saved.name : S.draftName)}"></div>
       <button class="btn primary wide" type="button" id="save-route">${saved ? "Salva il nuovo nome" : "Salva percorso"}</button>
-      <div class="row">${saved ? `<span class="chip ok">Salvato</span>` : ""}<button class="btn small" type="button" id="copy-route">Copia link</button>
-        <a class="btn small" href="${esc(omUrl(S.A, S.B, S.mode))}" target="_blank" rel="noopener">Organic Maps</a>
-        <a class="btn small" href="${esc(gmUrl(S.A, S.B, S.mode))}" target="_blank" rel="noopener">Google Maps</a>
-        <button class="btn small" type="button" id="new-route">Nuovo</button></div>
+      ${saved ? `<div class="row"><span class="chip ok">Salvato${saved.date ? ` · ${esc(fmtDay(saved.date))}` : ""}</span><button class="btn small" type="button" id="copy-route">Copia link</button></div>` : ""}
     </div>`;
   }
   function saveRoute() {
@@ -387,64 +473,82 @@ button, input, select { font: inherit; color: inherit; }
     if (!S.route) return;
     let it = S.savedId && S.routes.find(x => x.id === S.savedId);
     if (it) it.name = name;
-    else { it = { id: Date.now().toString(36), name, mode: S.mode, A: S.A, B: S.B, distance: S.route.distance, duration: S.route.duration, coords: S.route.coords, at: new Date().toISOString() }; S.routes.unshift(it); S.savedId = it.id; }
-    LS.set("mappa-percorsi", S.routes); drawResult(); drawRoutes(); toast(`"${name}" salvato`);
+    else { it = { id: Date.now().toString(36), name, mode: S.mode, A: { lat: S.A.lat, lon: S.A.lon, name: S.A.name }, B: { lat: S.B.lat, lon: S.B.lon, name: S.B.name }, distance: S.route.distance, duration: S.route.duration, coords: S.route.coords, date: S.pendingDate || "", at: new Date().toISOString() }; S.routes.unshift(it); S.savedId = it.id; S.pendingDate = ""; }
+    LS.set("mappa-percorsi", S.routes); drawResult(); drawRoutes(); drawEnds(); drawSaved(); toast(`"${name}" salvato`);
   }
   function openRoute(it) {
-    S.mode = it.mode; syncMode(); S.A = it.A; S.B = it.B; S.slot = null; S.savedId = it.id; S.draftName = "";
-    S.route = { coords: it.coords, distance: it.duration === undefined ? 0 : it.distance, duration: it.duration };
-    drawSlots(); drawEnds(); drawRoute(true); drawResult(); drawRoutes(); setTab("percorsi");
+    S.mode = it.mode; syncMode(); S.A = { ...it.A }; S.B = { ...it.B }; S.slot = null; S.savedId = it.id; S.draftName = "";
+    S.route = { coords: it.coords, distance: it.distance, duration: it.duration };
+    drawSlots(); drawEnds(); drawRoute(true); drawResult(); drawRoutes(); drawSaved();
   }
-  function newRoute() { S.A = null; S.B = null; S.route = null; S.savedId = null; S.draftName = ""; S.slot = "A"; layers.route.clearLayers(); $("q-A").value = ""; $("q-B").value = ""; drawSlots(); drawEnds(); drawResult(); drawRoutes(); $("q-A").focus(); }
+  function newRoute() { S.A = null; S.B = null; S.route = null; S.savedId = null; S.draftName = ""; S.slot = null; layers.route.clearLayers(); drawSlots(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); toast("Scegli partenza e arrivo"); }
   function drawRoutes() {
-    $("routes-title").textContent = S.routes.length ? `I miei percorsi · ${S.routes.length}` : "I miei percorsi";
+    $("routes-n").textContent = S.routes.length || "";
     $("routes").innerHTML = S.routes.length ? S.routes.map(it => `<article class="card item ${it.id === S.savedId ? "current" : ""}">
-      <div class="stack" style="gap:0"><b>${esc(it.name)}</b><span class="meta">${esc((MODES[it.mode] || MODES.piedi).label)} · ${esc(fmtKm(it.distance))} · ${esc(fmtMin(it.duration))}</span><span class="meta">${esc(it.A.name)} → ${esc(it.B.name)}</span></div>
-      <div class="row"><button class="btn small" type="button" data-open-r="${esc(it.id)}">Apri</button><button class="btn small" type="button" data-copy-r="${esc(it.id)}">Copia link</button><button class="btn small danger" type="button" data-del-r="${esc(it.id)}">Elimina</button></div>
-    </article>`).join("") : `<p class="empty">Nessun percorso salvato. Scegli partenza e arrivo, poi dai un nome.</p>`;
+      <div class="stack" style="gap:0"><b>${esc(it.name)}</b><span class="meta">${esc((MODES[it.mode] || MODES.piedi).label)} · ${esc(fmtKm(it.distance))} · ${esc(fmtMin(it.duration))}${it.date ? ` · ${esc(fmtDay(it.date))}` : ""}</span><span class="meta">${esc(it.A.name)} → ${esc(it.B.name)}</span></div>
+      <div class="row"><button class="btn small" type="button" data-open-r="${esc(it.id)}">Apri</button><button class="btn small" type="button" data-link-r="${esc(it.id)}">${it.date ? "Cambia giorno" : "Collega"}</button><button class="btn small danger" type="button" data-del-r="${esc(it.id)}">Elimina</button></div>
+    </article>`).join("") : `<p class="empty">Nessun percorso salvato.</p>`;
   }
-  function syncMode() { const sel = $("panel").querySelector("select[name=mezzo], select#mezzo, .tendina select"); if (sel && sel.value !== S.mode) { sel.value = S.mode; sel.dispatchEvent(new Event("change", { bubbles: true })); } }
+  function syncMode() { const sel = document.querySelector("#panel .tendina select"); if (sel && sel.value !== S.mode) { sel.value = S.mode; sel.dispatchEvent(new Event("change", { bubbles: true })); } }
 
-  /* ---------- Punti ---------- */
-  function drawPending() {
-    layers.pending.clearLayers(); const p = S.pending; if (!p) return;
-    L.marker([p.lat, p.lon], { keyboard: false, icon: L.divIcon({ className: "mk", html: `<span class="dot pending"></span>`, iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(layers.pending);
+  /* ---------- Calendario: collega un percorso a un giorno ---------- */
+  function openCal(id) {
+    const it = S.routes.find(x => x.id === id); if (!it) return;
+    const base = isoOk(it.date) ? parseD(it.date) : new Date();
+    S.cal = { id, y: base.getFullYear(), m: base.getMonth() }; drawCal(); $("cal").showModal();
   }
-  function drawPointForm() {
-    const f = $("pt-form"), p = S.pending;
-    if (!p) { f.innerHTML = ""; $("pt-hint").hidden = false; return; }
-    $("pt-hint").hidden = true;
-    f.innerHTML = `<div class="card stack">
-      <div class="field"><label for="pname">Nome</label><input class="input" id="pname" placeholder="es. Mercatino del sabato" value="${esc(p.name)}"></div>
-      <div class="field"><label for="pcat">Tipo</label><select class="input" id="pcat">${Object.entries(CATS).map(([v, l]) => `<option value="${v}" ${v === p.cat ? "selected" : ""}>${l}</option>`).join("")}</select></div>
-      <button class="btn primary wide" type="button" id="save-point">Salva punto</button>
-      <div class="row"><button class="btn small" type="button" id="cancel-point">Annulla</button></div>
-    </div>`;
-    tendine(f); $("pname").focus();
+  function drawCal() {
+    const c = S.cal, it = S.routes.find(x => x.id === c.id); if (!it) return;
+    const first = new Date(c.y, c.m, 1), start = (first.getDay() + 6) % 7, today = isoOf(new Date());
+    const cells = [];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(c.y, c.m, i - start + 1), iso = isoOf(d), out = d.getMonth() !== c.m;
+      cells.push(`<button class="day ${out ? "out" : ""} ${iso === today ? "today" : ""}" type="button" data-iso="${iso}" aria-pressed="${iso === it.date}" aria-label="${esc(fmtDay(iso))}">${d.getDate()}</button>`);
+    }
+    $("cal-body").innerHTML = `<div class="cal-head"><button class="cal-nav" type="button" data-cal="-1" aria-label="Mese prima">‹</button><b>${first.toLocaleDateString("it-IT", { month: "long", year: "numeric" })}</b><button class="cal-nav" type="button" data-cal="1" aria-label="Mese dopo">›</button></div>
+      <div class="cal-grid">${["L", "M", "M", "G", "V", "S", "D"].map(w => `<span class="wd">${w}</span>`).join("")}${cells.join("")}</div>
+      <div class="row">${it.date ? `<button class="btn small" type="button" id="cal-none">Togli il giorno</button>` : ""}<button class="btn small" type="button" id="cal-close">Annulla</button></div>`;
   }
-  function savePoint() {
-    const p = S.pending, name = $("pname").value.trim(), sel = $("pt-form").querySelector("select");
-    if (!name) { toast("Scrivi il nome del punto"); $("pname").focus(); return; }
-    S.points.unshift({ id: Date.now().toString(36), name, cat: CATS[sel.value] ? sel.value : "altro", lat: p.lat, lon: p.lon, at: new Date().toISOString() });
-    LS.set("mappa-punti", S.points); S.pending = null; drawPending(); drawPointForm(); drawPoints(); toast(`"${name}" salvato`);
-  }
-  function drawPoints() {
-    layers.points.clearLayers();
-    S.points.forEach(p => L.marker([p.lat, p.lon], { keyboard: false, icon: L.divIcon({ className: "mk", html: `<span class="dot ${esc(CATS[p.cat] ? p.cat : "altro")}"></span>`, iconSize: [18, 18], iconAnchor: [9, 9] }) })
-      .addTo(layers.points).bindTooltip(p.name, { permanent: true, direction: "top", offset: [0, -8], className: "lbl" }));
-    $("points").innerHTML = S.points.length ? S.points.map(p => `<article class="card item">
-      <div class="item-head"><span class="dot inline ${esc(CATS[p.cat] ? p.cat : "altro")}" aria-hidden="true"></span><div class="stack" style="gap:0;min-width:0"><b>${esc(p.name)}</b><span class="meta">${esc(CATS[p.cat] || "Altro")}</span></div></div>
-      <div class="row"><button class="btn small" type="button" data-open-p="${esc(p.id)}">Apri</button><button class="btn small" type="button" data-copy-p="${esc(p.id)}">Copia link</button><button class="btn small danger" type="button" data-del-p="${esc(p.id)}">Elimina</button></div>
-    </article>`).join("") : `<p class="empty">Nessun punto salvato.</p>`;
+  function setDate(id, iso) {
+    const it = S.routes.find(x => x.id === id); if (!it) return;
+    it.date = iso; LS.set("mappa-percorsi", S.routes); $("cal").close(); S.cal = null;
+    drawRoutes(); drawSaved(); drawEnds(); drawResult(); toast(iso ? `"${it.name}" collegato al ${fmtDay(iso)}` : "Giorno tolto");
   }
 
-  /* ---------- Schede, link, copia ---------- */
-  function setTab(t) {
-    S.tab = t;
-    document.querySelectorAll(".tab").forEach(b => { if (b.dataset.tab === t) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
-    $("sec-percorsi").hidden = t !== "percorsi"; $("sec-punti").hidden = t !== "punti";
-    if (t !== "punti" && S.pending) { S.pending = null; drawPending(); drawPointForm(); }
+  /* ---------- Preferiti ---------- */
+  function drawFavForm() {
+    const f = S.favForm, box = $("favform");
+    if (!f) { box.innerHTML = ""; return; }
+    box.innerHTML = `<div class="card stack">
+      <div class="field"><label for="fname">Nome del posto</label><input class="input" id="fname" placeholder="es. Hotel Tabaiba" value="${esc(f.name)}"></div>
+      <span class="lbl-s" id="ico-lbl">Icona</span>
+      <div class="icon-grid" role="radiogroup" aria-labelledby="ico-lbl">${Object.entries(ICONS).map(([k, [l, p]]) => `<button class="ico" type="button" role="radio" data-ico="${k}" aria-checked="${k === f.icon}" aria-label="${esc(l)}" title="${esc(l)}"><svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg></button>`).join("")}</div>
+      <span class="lbl-s" id="col-lbl">Colore</span>
+      <div class="swatch-row" role="radiogroup" aria-labelledby="col-lbl">${COLORS.map(c => `<button class="sw" type="button" role="radio" data-col="${c}" aria-checked="${c === f.color}" aria-label="Colore ${c}" style="background:${c}"></button>`).join("")}</div>
+      <button class="btn primary wide" type="button" id="save-fav">${f.id ? "Salva le modifiche" : "Salva nei preferiti"}</button>
+      <div class="row"><button class="btn small" type="button" id="cancel-fav">Annulla</button></div></div>`;
+    $("fname").focus();
   }
+  function saveFav() {
+    const f = S.favForm, name = $("fname").value.trim();
+    if (!name) { toast("Scrivi il nome del posto"); $("fname").focus(); return; }
+    let it = f.id && S.favs.find(x => x.id === f.id);
+    if (it) Object.assign(it, { name, icon: f.icon, color: f.color });
+    else S.favs.unshift({ id: Date.now().toString(36), name, icon: f.icon, color: f.color, lat: f.lat, lon: f.lon, at: new Date().toISOString() });
+    LS.set("mappa-preferiti", S.favs); S.favForm = null; drawFavForm(); drawFavs(); toast(`"${name}" salvato`);
+  }
+  function drawFavs() {
+    layers.favs.clearLayers();
+    S.favs.forEach(f => mk(f, `<span class="mk-wrap"><span class="fpin" style="background:${okColor(f.color)}">${svg(f.icon)}</span><span class="flabel">${esc(f.name)}</span></span>`, 30)
+      .on("click", () => { setPick({ lat: f.lat, lon: f.lon, name: f.name }); }).addTo(layers.favs));
+    $("favs-n").textContent = S.favs.length || "";
+    $("favs").innerHTML = S.favs.length ? S.favs.map(f => `<article class="card item">
+      <div class="item-head"><span class="fav-dot" style="background:${okColor(f.color)}" aria-hidden="true">${svg(f.icon)}</span><div class="stack" style="gap:0;min-width:0"><b>${esc(f.name)}</b><span class="meta">${esc((ICONS[f.icon] || ICONS.stella)[0])}</span></div></div>
+      <div class="row"><button class="btn small" type="button" data-open-f="${esc(f.id)}">Apri</button><button class="btn small" type="button" data-edit-f="${esc(f.id)}">Modifica</button><button class="btn small danger" type="button" data-del-f="${esc(f.id)}">Elimina</button></div>
+    </article>`).join("") : `<p class="empty">Nessun posto salvato. Tocca la mappa o cerca un posto, poi ★ Preferito.</p>`;
+  }
+
+  /* ---------- Link e copia ---------- */
   async function copy(text) {
     const box = $("linkbox");
     try { await navigator.clipboard.writeText(text); box.hidden = true; toast("Link copiato"); }
@@ -453,73 +557,79 @@ button, input, select { font: inherit; color: inherit; }
   function applyHash() {
     const h = location.hash.slice(1), i = h.indexOf("="); if (i < 0) return;
     const k = h.slice(0, i), parts = h.slice(i + 1).split("|").map(v => { try { return decodeURIComponent(v); } catch { return v; } });
-    const num = v => { const n = Number(v); return Number.isFinite(n) && Math.abs(n) <= 180 ? n : null; };
+    const num = v => { const n = Number(v); return v !== "" && Number.isFinite(n) && Math.abs(n) <= 180 ? n : null; };
     if (k === "r" && parts.length >= 8) {
-      const [mode, name, alat, alon, aname, blat, blon, bname] = parts;
+      const [mode, name, alat, alon, aname, blat, blon, bname, date] = parts;
       if (!MODES[mode] || [alat, alon, blat, blon].some(v => num(v) === null)) return;
       const A = { lat: num(alat), lon: num(alon), name: aname || "Partenza" }, B = { lat: num(blat), lon: num(blon), name: bname || "Arrivo" };
       const same = S.routes.find(x => x.mode === mode && x.A.lat === A.lat && x.A.lon === A.lon && x.B.lat === B.lat && x.B.lon === B.lon);
-      setTab("percorsi");
       if (same) { openRoute(same); return; }
-      S.mode = mode; syncMode(); S.A = A; S.B = B; S.slot = null; S.savedId = null; S.draftName = name; S.route = null;
+      S.mode = mode; syncMode(); S.A = A; S.B = B; S.slot = null; S.savedId = null; S.draftName = name; S.route = null; S.pendingDate = isoOk(date) ? date : "";
       drawSlots(); drawEnds(); drawResult(); routeIfReady();
-    } else if (k === "p" && parts.length >= 4) {
-      const [cat, name, lat, lon] = parts; if (num(lat) === null || num(lon) === null) return;
-      setTab("punti"); map.setView([num(lat), num(lon)], Math.max(map.getZoom(), 16));
-      const same = S.points.find(x => x.lat === num(lat) && x.lon === num(lon));
-      if (same) return;
-      S.pending = { lat: num(lat), lon: num(lon), name: name || "", cat: CATS[cat] ? cat : "altro" }; drawPending(); drawPointForm();
+    } else if (k === "f" && parts.length >= 5) {
+      const [icon, color, name, lat, lon] = parts; if (num(lat) === null || num(lon) === null) return;
+      map.setView([num(lat), num(lon)], Math.max(map.getZoom(), 16));
+      if (S.favs.find(x => x.lat === num(lat) && x.lon === num(lon))) return;
+      S.favForm = { lat: num(lat), lon: num(lon), name: name || "", icon: okIcon(icon), color: okColor(color) }; drawFavForm();
     }
   }
 
   /* ---------- Eventi ---------- */
   map.on("click", e => {
     const p = { lat: +e.latlng.lat.toFixed(5), lon: +e.latlng.lng.toFixed(5) };
-    if (S.tab === "punti") { S.pending = { ...p, name: S.pending ? ($("pname") ? $("pname").value : "") : "", cat: S.pending ? S.pending.cat : "attivita" }; drawPending(); drawPointForm(); return; }
-    if (!S.slot) { toast("Partenza e arrivo sono già scelti: tocca A o B per cambiarli"); return; }
-    const k = S.slot; setSlot(k, { ...p, name: `${p.lat}, ${p.lon}` }); reverseName(k, p);
+    if (S.slot) { setSlot(S.slot, { ...p, name: `${p.lat}, ${p.lon}`, auto: true }); return; }
+    const obj = { ...p, name: `${p.lat}, ${p.lon}`, auto: true }; setPick(obj); reverseName(obj);
   });
   document.addEventListener("click", async e => {
     const el = e.target.closest("button, a"); if (!el) return;
-    if (el.dataset.tab) { setTab(el.dataset.tab); return; }
-    if (el.dataset.pick) { S.slot = el.dataset.pick; drawSlots(); toast(`Tocca la mappa per ${el.dataset.pick === "A" ? "la partenza" : "l'arrivo"}`); return; }
+    if (el.dataset.pick) { S.slot = S.slot === el.dataset.pick ? null : el.dataset.pick; drawSlots(); if (S.slot) toast(`Tocca la mappa per ${S.slot === "A" ? "la partenza" : "l'arrivo"}`); return; }
     if (el.dataset.clear) { clearSlot(el.dataset.clear); return; }
-    if (el.classList.contains("res")) { const list = $("res-" + el.dataset.k), x = list._rows[Number(el.dataset.i)]; const p = { lat: +Number(x.lat).toFixed(5), lon: +Number(x.lon).toFixed(5), name: shortName(x) }; if (!S.A && !S.B) map.setView([p.lat, p.lon], 15); setSlot(el.dataset.k, p); return; }
-    if (el.id === "gps-slot") { const k = S.slot || "A"; try { toast("Cerco la tua posizione…"); const p = await myPosition(); setSlot(k, p); if (!S.route) map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15)); } catch { toast("Posizione non disponibile: controlla i permessi del browser"); } return; }
-    if (el.id === "swap") { if (!S.A && !S.B) return; const a = S.A; S.A = S.B; S.B = a; S.savedId = null; S.route = null; layers.route.clearLayers(); drawSlots(); drawEnds(); drawResult(); routeIfReady(); return; }
+    if (el.classList.contains("res")) { const x = $("res")._rows[Number(el.dataset.i)]; const p = { lat: +Number(x.lat).toFixed(5), lon: +Number(x.lon).toFixed(5), name: shortName(x) }; $("res").hidden = true; map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15)); setPick(p); return; }
+    if (el.id === "q-clear") { $("q").value = ""; $("res").hidden = true; el.hidden = true; $("q").focus(); return; }
+    if (el.id === "pick-A" || el.id === "pick-B") { setSlot(el.id.slice(-1), S.pick); return; }
+    if (el.id === "pick-fav") { const p = S.pick; S.favForm = { lat: p.lat, lon: p.lon, name: p.auto ? "" : p.name, icon: "stella", color: COLORS[0] }; S.pick = null; drawPick(); drawFavForm(); return; }
+    if (el.id === "pick-x") { S.pick = null; drawPick(); return; }
+    if (el.id === "gps-slot") { try { toast("Cerco la tua posizione…"); const p = await myPosition(); if (S.slot) setSlot(S.slot, p); else { map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15)); setPick(p); } } catch { toast("Posizione non disponibile: controlla i permessi del browser"); } return; }
+    if (el.id === "swap") { if (!S.A && !S.B) return; const a = S.A; S.A = S.B; S.B = a; S.savedId = null; S.route = null; layers.route.clearLayers(); drawSlots(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); routeIfReady(); return; }
     if (el.id === "save-route") { saveRoute(); return; }
     if (el.id === "new-route") { newRoute(); return; }
-    if (el.id === "copy-route") { const name = ($("rname") && $("rname").value.trim()) || "Percorso"; copy(routeLink({ mode: S.mode, name, A: S.A, B: S.B })); return; }
+    if (el.id === "copy-route") { const it = S.routes.find(x => x.id === S.savedId); if (it) copy(routeLink(it)); return; }
     if (el.dataset.openR) { const it = S.routes.find(x => x.id === el.dataset.openR); if (it) openRoute(it); return; }
-    if (el.dataset.copyR) { const it = S.routes.find(x => x.id === el.dataset.copyR); if (it) copy(routeLink(it)); return; }
+    if (el.dataset.linkR) { openCal(el.dataset.linkR); return; }
     if (el.dataset.delR) { if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Sì, elimina"; return; }
-      S.routes = S.routes.filter(x => x.id !== el.dataset.delR); if (S.savedId === el.dataset.delR) S.savedId = null; LS.set("mappa-percorsi", S.routes); drawRoutes(); drawResult(); toast("Percorso eliminato"); return; }
-    if (el.id === "save-point") { savePoint(); return; }
-    if (el.id === "cancel-point") { S.pending = null; drawPending(); drawPointForm(); return; }
-    if (el.dataset.openP) { const p = S.points.find(x => x.id === el.dataset.openP); if (p) { map.setView([p.lat, p.lon], Math.max(map.getZoom(), 16)); } return; }
-    if (el.dataset.copyP) { const p = S.points.find(x => x.id === el.dataset.copyP); if (p) copy(pointLink(p)); return; }
-    if (el.dataset.delP) { if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Sì, elimina"; return; }
-      S.points = S.points.filter(x => x.id !== el.dataset.delP); LS.set("mappa-punti", S.points); drawPoints(); toast("Punto eliminato"); return; }
+      S.routes = S.routes.filter(x => x.id !== el.dataset.delR); if (S.savedId === el.dataset.delR) S.savedId = null; LS.set("mappa-percorsi", S.routes); drawRoutes(); drawResult(); drawEnds(); drawSaved(); toast("Percorso eliminato"); return; }
+    if (el.dataset.cal) { S.cal.m += Number(el.dataset.cal); if (S.cal.m < 0) { S.cal.m = 11; S.cal.y--; } if (S.cal.m > 11) { S.cal.m = 0; S.cal.y++; } drawCal(); return; }
+    if (el.dataset.iso) { setDate(S.cal.id, el.dataset.iso); return; }
+    if (el.id === "cal-none") { setDate(S.cal.id, ""); return; }
+    if (el.id === "cal-close") { $("cal").close(); S.cal = null; return; }
+    if (el.dataset.ico) { S.favForm.icon = el.dataset.ico; el.parentElement.querySelectorAll(".ico").forEach(b => b.setAttribute("aria-checked", b === el)); return; }
+    if (el.dataset.col) { S.favForm.color = el.dataset.col; el.parentElement.querySelectorAll(".sw").forEach(b => b.setAttribute("aria-checked", b === el)); return; }
+    if (el.id === "save-fav") { saveFav(); return; }
+    if (el.id === "cancel-fav") { S.favForm = null; drawFavForm(); return; }
+    if (el.dataset.openF) { const f = S.favs.find(x => x.id === el.dataset.openF); if (f) { map.setView([f.lat, f.lon], Math.max(map.getZoom(), 16)); setPick({ lat: f.lat, lon: f.lon, name: f.name }); } return; }
+    if (el.dataset.editF) { const f = S.favs.find(x => x.id === el.dataset.editF); if (f) { S.favForm = { ...f }; S.pick = null; drawPick(); drawFavForm(); map.setView([f.lat, f.lon], Math.max(map.getZoom(), 15)); } return; }
+    if (el.dataset.delF) { if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Sì, elimina"; return; }
+      S.favs = S.favs.filter(x => x.id !== el.dataset.delF); LS.set("mappa-preferiti", S.favs); drawFavs(); toast("Posto eliminato"); return; }
     if (el.id === "fs") { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { toast("Schermo intero non disponibile qui"); } }
   });
   document.addEventListener("fullscreenchange", () => setTimeout(() => map.invalidateSize(), 150));
-  document.addEventListener("focusin", e => { const k = e.target.dataset && e.target.dataset.q; if (k && S.slot !== k && !S[k]) { S.slot = k; drawSlots(); } });
+  document.addEventListener("input", e => { if (e.target.id === "q") $("q-clear").hidden = !e.target.value; if (e.target.id === "fname" && S.favForm) S.favForm.name = e.target.value; });
   document.addEventListener("keydown", e => {
-    const k = e.target.dataset && e.target.dataset.q;
-    if (k && e.key === "Enter") { e.preventDefault(); search(k, e.target.value); }
-    else if (k && e.key === "Escape") { $("res-" + k).hidden = true; }
+    if (e.target.id === "q" && e.key === "Enter") { e.preventDefault(); search(e.target.value); }
+    else if (e.target.id === "q" && e.key === "Escape") { $("res").hidden = true; }
     else if (e.key === "Enter" && e.target.id === "rname") { e.preventDefault(); saveRoute(); }
-    else if (e.key === "Enter" && e.target.id === "pname") { e.preventDefault(); savePoint(); }
+    else if (e.key === "Enter" && e.target.id === "fname") { e.preventDefault(); saveFav(); }
   });
   document.addEventListener("change", e => {
     const sel = e.target;
-    if (sel.tagName === "SELECT" && sel.closest("#sec-percorsi")) { if (MODES[sel.value] && sel.value !== S.mode) { S.mode = sel.value; LS.set("mappa-mezzo", S.mode); S.savedId = null; S.route = null; layers.route.clearLayers(); drawResult(); routeIfReady(); } }
+    if (sel.tagName === "SELECT" && sel.closest("#panel")) { if (MODES[sel.value] && sel.value !== S.mode) { S.mode = sel.value; LS.set("mappa-mezzo", S.mode); S.savedId = null; S.route = null; layers.route.clearLayers(); drawResult(); drawRoutes(); drawSaved(); routeIfReady(); } }
   });
+  $("cal").addEventListener("close", () => { S.cal = null; });
   window.addEventListener("hashchange", applyHash);
 
   /* ---------- Avvio ---------- */
-  const mezzo = $("mezzo"); mezzo.value = S.mode; tendine($("sec-percorsi"));
-  drawSlots(); drawRoutes(); drawPoints(); drawResult();
+  $("mezzo").value = S.mode; tendine($("panel"));
+  drawSlots(); drawRoutes(); drawFavs(); drawSaved(); drawResult();
   applyHash();
 })();
 </script>
