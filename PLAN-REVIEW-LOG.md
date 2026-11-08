@@ -40,3 +40,10 @@
 ## Costruzione (Claude), 8 nov 2026
 - Fred ha scelto "Sì, procedi" dopo i 5 round: costruzione SENZA approvazione formale del piano (percorso "unreviewed-spec", registrato come tale). Commit di base: 77ab92f.
 - Applicati: patch_round2.py (index.html, sw.js), supabase.sql riscritto (drop/create scrivi, unisci), README riscritto.
+- Prove a fine costruzione (browser integrato): 375×812: tocco→A/B/C con percorso; pannello chiuso inert=true, aperto inert=false con focus dentro; "Salva zona" assente; Inverti chiude la scheda del punto; nome scritto conservato dopo ridisegno; ✕ ricerca, colori, lettere, zoom = 44×44; evento storage → preferito dell'altra scheda unito; offline con Satellite → base "mappa". 1024×768: percorso A→B, nessuno scorrimento orizzontale, lettere 44×44, codice famiglia creato → "Sincronizzato" con lo scrivi vecchio (compatibilità). Sintassi JS e sw.js OK.
+- Commit della costruzione: vedi `git log` (pubblicato su GitHub Pages). Il nuovo supabase.sql va ancora incollato da Fred nell'SQL Editor.
+
+## Ispezione 1 (Codex, sessione fresca 01a1bbc6-1e56-7c51-9fb9-0f09ada1b974, gpt-6.1-sol, base 77ab92f, unreviewed-spec)
+- Risultato: scratchpad\claudex\inspect1\claudex-8xi7cbj8\result.json. Verdetto: REVISE, 10 rilievi (IR01-IR09 medi, IR10 basso).
+- Disposizioni: tutti accettati e corretti (patch_fix1.py): IR01 scollega passa da setCodice (conn++); IR02 a fine richiesta vecchia riparte la sincronizzazione del codice nuovo; IR03 evento storage su mappa-codice; IR04 confronto su JSON canonico (chiavi ordinate); IR05 tiles-v1 cancellata solo se la copia riesce; IR06 salvataggi/date/eliminazioni ripristinano lo stato se il browser non scrive; IR07 link #r= azzera scheda, percorso e richieste; IR08 focus e cursore nel campo nome conservati, ritorno del focus su bar-menu; IR09 scritture in cache legate all'evento (waitUntil) con clone prima del ritorno; IR10 calendario 44×44 a 375 px.
+- Prove (browser 375×812): preferito e percorso con localStorage bloccato → avviso, nessun "Salvato", nessun doppione al secondo tentativo; focus e cursore nel nome conservati dopo un ridisegno; giorni del calendario 44×44. Sintassi JS e sw.js OK.
