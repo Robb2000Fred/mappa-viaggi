@@ -411,7 +411,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
       const ll = [p.coords.latitude, p.coords.longitude];
       layers.me.clearLayers();
       L.circle(ll, { radius: p.coords.accuracy || 0, color: "#2F6DB5", weight: 1, fillOpacity: .12 }).addTo(layers.me);
-      L.circleMarker(ll, { radius: 8, color: "#fff", weight: 3, fillColor: "#2F6DB5", fillOpacity: 1 }).addTo(layers.me).bindTooltip("Sei qui", { direction: "top", offset: [0, -8], className: "lbl" });
+      L.circleMarker(ll, { radius: 8, color: "#fff", weight: 3, fillColor: "#2F6DB5", fillOpacity: 1 }).addTo(layers.me).bindTooltip(`Sei qui (${accText(Math.round(p.coords.accuracy || 0)) || "precisione sconosciuta"})`, { direction: "top", offset: [0, -8], className: "lbl" });
       if (firstFix) { firstFix = false; map.setView(ll, Math.max(map.getZoom(), 15)); }
     }, e => { toast(e.code === 1 ? "Hai negato la posizione al browser" : "Posizione non trovata"); watchId = null; meBtn.getContainer().setAttribute("aria-pressed", "false"); },
     { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
@@ -438,10 +438,15 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     } catch { toast("Non riesco a salvare la zona"); }
     downloading = false;
   }
+  // Aspetta fino a 12 s un fix preciso (<= 30 m); altrimenti usa il migliore ricevuto.
   const myPosition = () => new Promise((ok, no) => {
     if (!navigator.geolocation) return no(new Error("no"));
-    navigator.geolocation.getCurrentPosition(p => ok({ lat: +p.coords.latitude.toFixed(5), lon: +p.coords.longitude.toFixed(5), name: "La mia posizione" }), no, { enableHighAccuracy: true, timeout: 20000 });
+    let best = null, id = null, t = null;
+    const done = () => { navigator.geolocation.clearWatch(id); clearTimeout(t); if (!best) return no(new Error("none")); ok({ lat: +best.latitude.toFixed(5), lon: +best.longitude.toFixed(5), name: "La mia posizione", acc: Math.round(best.accuracy || 0) }); };
+    id = navigator.geolocation.watchPosition(p => { if (!best || p.coords.accuracy < best.accuracy) best = p.coords; if (best.accuracy <= 30) done(); }, e => { clearTimeout(t); no(e); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    t = setTimeout(done, 12000);
   });
+  const accText = a => !a ? "" : a >= 1000 ? `circa ±${(a / 1000).toFixed(1).replace(".", ",")} km` : `circa ±${a} m`;
   const mk = (p, html, size, extra) => L.marker([p.lat, p.lon], { keyboard: false, icon: L.divIcon({ className: "mk", html, iconSize: [size, size], iconAnchor: [size / 2, size / 2] }), ...extra });
 
   /* ---------- Pannello / foglio sul telefono ---------- */
@@ -764,7 +769,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (el.id === "pick-fav") { const p = S.pick; if (p.stop !== undefined) S.pts.splice(p.stop, 1); S.favForm = { lat: p.lat, lon: p.lon, name: p.auto ? "" : p.name, icon: "stella", color: COLORS[0] }; S.pick = null; drawPick(); if (p.stop !== undefined) { S.route = null; S.savedId = null; layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); } drawFavForm(); return; }
     if (el.id === "pick-del") { clearStop(S.pick.stop); return; }
     if (el.id === "pick-x") { S.pick = null; drawPick(); return; }
-    if (el.id === "gps-slot") { try { toast("Cerco la tua posizione…"); const p = await myPosition(); if (S.slot !== null) setStop(S.slot, p); else { map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15)); setPick(p); } } catch { toast("Posizione non disponibile: controlla i permessi del browser"); } return; }
+    if (el.id === "gps-slot") { try { toast("Cerco la tua posizione…"); const p = await myPosition(); if (S.slot !== null) setStop(S.slot, p); else { map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15)); setPick(p); } toast(p.acc > 500 ? `Posizione approssimativa (${accText(p.acc)}): su PC viene dalla rete, non dal GPS` : `Precisione ${accText(p.acc)}`); } catch { toast("Posizione non disponibile: controlla i permessi del browser"); } return; }
     if (el.id === "swap") { if (S.pts.length < 2) return; S.pts.reverse(); S.savedId = null; S.route = null; layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); return; }
     if (el.id === "save-route") { saveRoute(); return; }
     if (el.id === "new-route") { newRoute(); return; }
