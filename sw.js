@@ -1,12 +1,22 @@
 /* Mappa Viaggi: fa funzionare la pagina e i pezzi di mappa già visti anche senza internet. */
-const APP = "app-v2", TILES = "tiles-v1";
+// Nomi con prefisso "mappa-": su robb2000fred.github.io possono convivere altre app, e non vanno toccate le loro cache.
+const APP = "mappa-app-v3", TILES = "mappa-tiles-v1", LEGACY = ["app-v1", "app-v2", "tiles-v1"];
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./vendor/leaflet.min.js", "./vendor/leaflet.min.css", "./fonts/poppins.css",
   ...["400", "500", "600", "700"].flatMap(w => [`./fonts/poppins-${w}-latin.woff2`, `./fonts/poppins-${w}-latin-ext.woff2`]),
   "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", e => { e.waitUntil(caches.open(APP).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== APP && k !== TILES).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil((async () => {
+    // I tasselli già salvati nella vecchia cache "tiles-v1" passano nella nuova, così non si perdono.
+    if (await caches.has("tiles-v1")) {
+      try { const old = await caches.open("tiles-v1"), nw = await caches.open(TILES);
+        for (const k of await old.keys()) { if (!(await nw.match(k))) { const r = await old.match(k); if (r) await nw.put(k, r); } } } catch {}
+    }
+    const ks = await caches.keys();
+    await Promise.all(ks.filter(k => (k.startsWith("mappa-") || LEGACY.includes(k)) && k !== APP && k !== TILES).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 self.addEventListener("fetch", e => {
   const u = new URL(e.request.url);

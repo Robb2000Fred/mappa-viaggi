@@ -67,7 +67,7 @@ button, input, select { font: inherit; color: inherit; }
 .search-row { position: relative; }
 .search-row .input { padding-left: 44px; padding-right: 44px; }
 .search-row > svg { position: absolute; left: 14px; top: 50%; width: 20px; height: 20px; margin-top: -10px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
-.search-row .x { position: absolute; right: 4px; top: 4px; width: 38px; height: 38px; border: 0; background: transparent; }
+.search-row .x { position: absolute; right: 2px; top: 2px; width: 44px; height: 44px; border: 0; background: transparent; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 16px; min-width: 0; }
 .stack { display: grid; gap: 10px; }
@@ -98,7 +98,7 @@ button, input, select { font: inherit; color: inherit; }
 .slot.active { border-color: var(--accent); background: var(--accent-soft); }
 .slot .name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500; }
 .slot .name.ph { color: var(--muted); font-weight: 400; }
-.badge { display: inline-grid; place-items: center; padding: 0; line-height: 1; width: 40px; height: 40px; border-radius: 50%; border: 3px solid #fff; color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
+.badge { display: inline-grid; place-items: center; padding: 0; line-height: 1; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #fff; color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
 .badge.empty { background: var(--surface); color: var(--muted); border: 2px dashed var(--muted); box-shadow: none; }
 .results { list-style: none; margin: 0; padding: 6px; border: 1.5px solid var(--accent); border-radius: 12px; background: var(--surface); display: grid; gap: 2px; }
 .results li.meta { padding: 8px 10px; }
@@ -125,7 +125,7 @@ button, input, select { font: inherit; color: inherit; }
 .ico:hover { border-color: var(--accent); }
 .ico[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .swatch-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.sw { width: 36px; height: 36px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; box-shadow: inset 0 0 0 2px var(--surface); }
+.sw { width: 44px; height: 44px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; box-shadow: inset 0 0 0 2px var(--surface); }
 .sw[aria-checked="true"] { border-color: var(--ink); }
 .fav-dot { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
 .fav-dot svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -178,7 +178,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
 .leaflet-tooltip.lbl { font: 600 13px var(--f-body); background: #F5F1EB; color: #3E3B36; border: 1.5px solid #3E3B36; border-radius: 8px; padding: 3px 8px; box-shadow: none; }
 .leaflet-tooltip.lbl::before { display: none; }
 .leaflet-container { font-family: var(--f-body); }
-.leaflet-bar a { width: 40px; height: 40px; line-height: 40px; font-size: 20px; }
+.leaflet-bar a, .leaflet-touch .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; font-size: 20px; }
 .map-btn { min-width: 44px; height: 44px; padding: 0 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink);
   font: 600 15px var(--f-body); cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); display: inline-flex; align-items: center; gap: 6px; }
 .map-btn:hover { border-color: var(--accent); }
@@ -282,7 +282,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const LS = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { toast("Non riesco a salvare su questo dispositivo"); } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
   };
   const MODES = {
     piedi: { label: "A piedi", osrm: "routed-foot/route/v1/foot" },
@@ -330,11 +330,12 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
 
   // Percorsi salvati prima avevano solo A e B: li porto al formato a tappe.
   const upgrade = it => { if (!it.pts && it.A && it.B) { it.pts = [it.A, it.B]; delete it.A; delete it.B; } if (!it.mod) it.mod = it.at || now(); return it; };
-  const S = { mode: LS.get("mappa-mezzo", "piedi"), pts: [], slot: null, route: null, savedId: null, draftName: "", pendingDate: "",
+  const S = { mode: LS.get("mappa-mezzo", "piedi"), pts: [], slot: null, route: null, savedId: null, draftName: null, pendingDate: "",
     routes: LS.get("mappa-percorsi", []).map(upgrade), favs: LS.get("mappa-preferiti", []).map(upgrade), del: LS.get("mappa-del", {}),
     pick: null, favForm: null, cal: null, codice: LS.get("mappa-codice", ""), syncState: "", syncAt: "" };
   if (!MODES[S.mode]) S.mode = "piedi";
-  const persist = () => { LS.set("mappa-percorsi", S.routes); LS.set("mappa-preferiti", S.favs); LS.set("mappa-del", S.del); };
+  const persist = () => { const a = LS.set("mappa-percorsi", S.routes), b = LS.set("mappa-preferiti", S.favs), c = LS.set("mappa-del", S.del); dirty = true; return a && b && c; };
+  const NO_SAVE = "Non salvato sul dispositivo: la memoria del browser è piena o bloccata";
 
   let toastTimer;
   function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2800); }
@@ -380,9 +381,10 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   const view = LS.get("mappa-vista", { lat: 42.5, lon: 12.5, z: 6 });
   const map = L.map("map", { zoomControl: true, tap: false }).setView([view.lat, view.lon], view.z);
   map.attributionControl.setPrefix(false);
-  const makeOsm = () => L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, maxNativeZoom: navigator.onLine === false ? 16 : 19, className: "osm", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' });
-  let osm = makeOsm();
-  const refreshOsm = () => { if (map.hasLayer(osm)) { map.removeLayer(osm); osm = makeOsm().addTo(map); } else osm = makeOsm(); toast(navigator.onLine === false ? "Sei senza internet: vedi la mappa salvata" : "Internet è tornato"); if (navigator.onLine) pull(); };
+  const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, className: "osm", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' });
+  const refreshOsm = () => { offlineBase(); toast(navigator.onLine === false ? "Sei senza internet: vedi la mappa salvata" : "Internet è tornato"); if (navigator.onLine) pull(); };
+  // Senza internet il satellite non c'è (non viene salvato): si passa alla mappa normale.
+  function offlineBase() { if (navigator.onLine === false && base === "sat") { map.removeLayer(sat); osm.addTo(map); base = "mappa"; LS.set("mappa-base", base); baseBtn.getContainer().textContent = "Satellite"; } }
   window.addEventListener("online", refreshOsm); window.addEventListener("offline", refreshOsm);
   const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Esri, Maxar, Earthstar Geographics" });
   let base = LS.get("mappa-base", "mappa");
@@ -390,7 +392,6 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   map.on("moveend", () => { const c = map.getCenter(); LS.set("mappa-vista", { lat: +c.lat.toFixed(5), lon: +c.lng.toFixed(5), z: map.getZoom() }); });
   const layers = { saved: L.layerGroup().addTo(map), route: L.layerGroup().addTo(map), favs: L.layerGroup().addTo(map), ends: L.layerGroup().addTo(map), me: L.layerGroup().addTo(map), pick: L.layerGroup().addTo(map) };
   const ICO_ME = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
-  const ICO_DL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M4 19h16"/></svg>';
   const ctl = (html, label, onClick) => {
     const C = L.Control.extend({ onAdd() {
       const b = L.DomUtil.create("button", "map-btn"); b.type = "button"; b.innerHTML = html; b.setAttribute("aria-label", label); b.title = label;
@@ -401,8 +402,8 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (base === "sat") { map.removeLayer(sat); osm.addTo(map); base = "mappa"; } else { map.removeLayer(osm); sat.addTo(map); base = "sat"; }
     LS.set("mappa-base", base); baseBtn.getContainer().textContent = base === "sat" ? "Mappa" : "Satellite";
   });
-  ctl(ICO_DL, "Salva questa zona della mappa per usarla senza internet", downloadArea);
   const meBtn = ctl(ICO_ME, "Dove sono", toggleWatch);
+  offlineBase();
   meBtn.getContainer().setAttribute("aria-pressed", "false");
   let watchId = null, firstFix = true;
   function toggleWatch() {
@@ -415,49 +416,34 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
       L.circle(ll, { radius: p.coords.accuracy || 0, color: "#2F6DB5", weight: 1, fillOpacity: .12 }).addTo(layers.me);
       L.circleMarker(ll, { radius: 8, color: "#fff", weight: 3, fillColor: "#2F6DB5", fillOpacity: 1 }).addTo(layers.me).bindTooltip(`Sei qui (${accText(Math.round(p.coords.accuracy || 0)) || "precisione sconosciuta"})`, { direction: "top", offset: [0, -8], className: "lbl" });
       if (firstFix) { firstFix = false; map.setView(ll, Math.max(map.getZoom(), 15)); }
-    }, e => { toast(e.code === 1 ? "Hai negato la posizione al browser" : "Posizione non trovata"); watchId = null; meBtn.getContainer().setAttribute("aria-pressed", "false"); },
+    }, e => { toast(e.code === 1 ? "Hai negato la posizione al browser" : "Posizione non trovata"); if (watchId !== null) navigator.geolocation.clearWatch(watchId); watchId = null; layers.me.clearLayers(); meBtn.getContainer().setAttribute("aria-pressed", "false"); },
     { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
-  }
-  const tileXY = (lat, lon, z) => { const n = 2 ** z, r = lat * Math.PI / 180; return [Math.floor((lon + 180) / 360 * n), Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n)]; };
-  let downloading = false;
-  async function downloadArea() {
-    if (!("caches" in window)) { toast("Questo browser non può salvare la mappa"); return; }
-    if (downloading) { toast("Sto già scaricando…"); return; }
-    const b = map.getBounds(), urls = [];
-    for (let z = 11; z <= 16; z++) {
-      const [x0, y0] = tileXY(b.getNorth(), b.getWest(), z), [x1, y1] = tileXY(b.getSouth(), b.getEast(), z);
-      for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) urls.push(`https://tile.openstreetmap.org/${z}/${x}/${y}.png`);
-    }
-    const total = urls.length;
-    if (total > 900) { toast(`Zona troppo grande (${total} pezzi): avvicina la mappa`); return; }
-    downloading = true; let done = 0, fail = 0;
-    toast(`Scarico ${total} pezzi di mappa…`);
-    try {
-      const c = await caches.open("tiles-v1");
-      const worker = async () => { while (urls.length) { const u = urls.shift(); try { if (!(await c.match(u))) { const r = await fetch(u); if (r.ok) await c.put(u, r); else fail++; } } catch { fail++; } done++; if (done % 40 === 0) toast(`Scaricati ${done} di ${total}…`); } };
-      await Promise.all([worker(), worker(), worker()]);
-      toast(fail ? `Zona salvata, ${fail} pezzi mancanti: riprova` : "Zona salvata: funziona anche senza internet");
-    } catch { toast("Non riesco a salvare la zona"); }
-    downloading = false;
   }
   // Aspetta fino a 12 s un fix preciso (<= 30 m); altrimenti usa il migliore ricevuto.
   const myPosition = () => new Promise((ok, no) => {
     if (!navigator.geolocation) return no(new Error("no"));
     let best = null, id = null, t = null;
-    const done = () => { navigator.geolocation.clearWatch(id); clearTimeout(t); if (!best) return no(new Error("none")); ok({ lat: +best.latitude.toFixed(5), lon: +best.longitude.toFixed(5), name: "La mia posizione", acc: Math.round(best.accuracy || 0) }); };
-    id = navigator.geolocation.watchPosition(p => { if (!best || p.coords.accuracy < best.accuracy) best = p.coords; if (best.accuracy <= 30) done(); }, e => { clearTimeout(t); no(e); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    const stop = () => { if (id !== null) navigator.geolocation.clearWatch(id); clearTimeout(t); };
+    const done = () => { stop(); if (!best) return no(new Error("none")); ok({ lat: +best.latitude.toFixed(5), lon: +best.longitude.toFixed(5), name: "La mia posizione", acc: Math.round(best.accuracy || 0) }); };
+    id = navigator.geolocation.watchPosition(p => { if (!best || p.coords.accuracy < best.accuracy) best = p.coords; if (best.accuracy <= 30) done(); }, e => { stop(); no(e); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
     t = setTimeout(done, 12000);
   });
   const accText = a => !a ? "" : a >= 1000 ? `circa ±${(a / 1000).toFixed(1).replace(".", ",")} km` : `circa ±${a} m`;
   const mk = (p, html, size, extra) => L.marker([p.lat, p.lon], { keyboard: false, icon: L.divIcon({ className: "mk", html, iconSize: [size, size], iconAnchor: [size / 2, size / 2] }), ...extra });
 
   /* ---------- Pannello / foglio sul telefono ---------- */
+  let sheetOpener = null;
   function openSheet(title, focusId) {
     $("sheet-title").textContent = title || "Mappa Viaggi";
-    $("panel").classList.add("open");
-    if (focusId) setTimeout(() => { const el = $(focusId); if (el) { el.scrollIntoView({ block: "center" }); el.focus({ preventScroll: true }); } }, 60);
+    const panel = $("panel"); panel.inert = false; panel.classList.add("open");
+    if (!panel.contains(document.activeElement)) sheetOpener = document.activeElement;
+    setTimeout(() => { const el = (focusId && $(focusId)) || $("sheet-close"); if (el) { el.scrollIntoView({ block: "center" }); el.focus({ preventScroll: true }); } }, 60);
   }
-  function closeSheet() { $("panel").classList.remove("open"); }
+  function closeSheet() {
+    const panel = $("panel"); panel.classList.remove("open"); panel.inert = isMobile();
+    if (panel.inert && sheetOpener && document.contains(sheetOpener) && panel.contains(document.activeElement)) sheetOpener.focus({ preventScroll: true });
+  }
+  $("panel").inert = isMobile();
   function placePick() { const home = isMobile() ? $("float") : $("pick-home"); if ($("pick").parentElement !== home) home.append($("pick")); }
   mq.addEventListener("change", () => { placePick(); closeSheet(); drawBar(); setTimeout(() => map.invalidateSize(), 50); });
 
@@ -553,8 +539,8 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
   /* ---------- Percorso ---------- */
   let routeToken = 0;
   async function routeIfReady() {
-    if (S.pts.length < 2) return;
     const t = ++routeToken, m = MODES[S.mode];
+    if (S.pts.length < 2) return;
     $("result").innerHTML = `<div class="card"><span class="meta">Calcolo il percorso…</span></div>`; drawBar("Calcolo il percorso…");
     try {
       const r = await fetch(`https://routing.openstreetmap.de/${m.osrm}/${S.pts.map(p => `${p.lon},${p.lat}`).join(";")}?overview=full&geometries=geojson`);
@@ -589,7 +575,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     const saved = S.savedId && S.routes.find(x => x.id === S.savedId), m = MODES[S.mode];
     box.innerHTML = `<div class="card stack">
       <div class="figs"><div class="fig"><span>Distanza</span><b>${esc(fmtKm(r.distance))}</b></div><div class="fig"><span>${esc(m.label)}</span><b>${esc(fmtMin(r.duration))}</b></div></div>
-      <div class="field"><label for="rname">Nome del percorso</label><input class="input" id="rname" placeholder="es. Porto-Dune" value="${esc(saved ? saved.name : S.draftName)}"></div>
+      <div class="field"><label for="rname">Nome del percorso</label><input class="input" id="rname" placeholder="es. Porto-Dune" value="${esc(S.draftName ?? (saved ? saved.name : ""))}"></div>
       <button class="btn primary wide" type="button" id="save-route">${saved ? "Salva il nuovo nome" : "Salva percorso"}</button>
       ${saved ? `<div class="row"><span class="chip ok">Salvato${saved.date ? ` · ${esc(fmtDay(saved.date))}` : ""}</span><button class="btn small" type="button" id="copy-route">Copia link</button></div>` : ""}
     </div>`;
@@ -602,16 +588,19 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     S.pick = null; drawPick();
     if (it) { it.name = name; it.mod = now(); }
     else { it = { id: newId(), name, mode: S.mode, pts: S.pts.map(p => ({ lat: p.lat, lon: p.lon, name: p.name })), distance: S.route.distance, duration: S.route.duration, coords: S.route.coords, date: S.pendingDate || "", at: now(), mod: now() }; S.routes.unshift(it); S.savedId = it.id; S.pendingDate = ""; }
-    persist(); push(); drawResult(); drawRoutes(); drawEnds(); drawSaved(); drawBar(); toast(`"${name}" salvato`);
+    const ok = persist(); push(); S.draftName = ok ? null : name; drawResult(); drawRoutes(); drawEnds(); drawSaved(); drawBar();
+    if (!ok) { toast(NO_SAVE); return; }
+    toast(`"${name}" salvato`);
     if (isMobile()) closeSheet();
   }
   function openRoute(it) {
-    S.mode = it.mode; syncMode(); S.pts = it.pts.map(p => ({ ...p })); S.slot = null; S.savedId = it.id; S.draftName = "";
+    S.mode = it.mode; syncMode(); S.pts = it.pts.map(p => ({ ...p })); S.slot = null; S.savedId = it.id; S.draftName = null; S.pendingDate = "";
+    routeToken++; S.pick = null; drawPick();
     S.route = { coords: it.coords, distance: it.distance, duration: it.duration };
     drawStops(); drawEnds(); drawRoute(true); drawResult(); drawRoutes(); drawSaved(); drawBar();
     if (isMobile()) closeSheet();
   }
-  function newRoute() { S.pts = []; S.route = null; S.savedId = null; S.draftName = ""; S.slot = null; S.pick = null; drawPick(); layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); if (isMobile()) closeSheet(); toast("Tocca un punto sulla mappa: diventa A"); }
+  function newRoute() { routeToken++; S.pts = []; S.route = null; S.savedId = null; S.draftName = null; S.pendingDate = ""; S.slot = null; S.pick = null; drawPick(); layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); if (isMobile()) closeSheet(); toast("Tocca un punto sulla mappa: diventa A"); }
   function drawRoutes() {
     $("routes-n").textContent = S.routes.length || "";
     $("routes").innerHTML = S.routes.length ? S.routes.map(it => `<article class="card item ${it.id === S.savedId ? "current" : ""}">
@@ -682,7 +671,8 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     let it = f.id && S.favs.find(x => x.id === f.id);
     if (it) Object.assign(it, { name, icon: f.icon, color: f.color, mod: now() });
     else S.favs.unshift({ id: newId(), name, icon: f.icon, color: f.color, lat: f.lat, lon: f.lon, at: now(), mod: now() });
-    persist(); push(); S.favForm = null; drawFavForm(); drawFavs(); toast(`"${name}" salvato`); if (isMobile()) closeSheet();
+    const ok = persist(); push(); drawFavs(); if (!ok) { toast(NO_SAVE); return; }
+    S.favForm = null; drawFavForm(); toast(`"${name}" salvato`); if (isMobile()) closeSheet();
   }
   function drawFavs() {
     layers.favs.clearLayers();
@@ -702,26 +692,41 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (!r.ok) throw new Error(String(r.status));
     return r.json();
   }
+  // Stessa regola di spareggio della funzione SQL unisci: mod maggiore, poi campo per campo (name, at, date, icon, color, mode, distance, duration, lat, lon, pts, coords).
+  const TIE = ["mod", "name", "at", "date", "icon", "color", "mode", "distance", "duration", "lat", "lon"];
+  const tv = (o, k) => o[k] === undefined || o[k] === null ? "" : (k === "pts" || k === "coords") ? JSON.stringify(o[k]) : String(o[k]);
+  const wins = (x, c) => { for (const k of [...TIE, "pts", "coords"]) { const a = tv(x, k), b = tv(c, k); if (a !== b) return a > b; } return false; };
   function merge(a, b) {
-    const del = { ...(a.del || {}) };
-    for (const [k, v] of Object.entries(b.del || {})) if (!del[k] || v > del[k]) del[k] = v;
-    const pick = (xs, ys) => { const m = new Map(); [...(xs || []), ...(ys || [])].map(upgrade).forEach(x => { if (del[x.id] && del[x.id] >= x.mod) return; const cur = m.get(x.id); if (!cur || x.mod > cur.mod) m.set(x.id, x); }); return [...m.values()].sort((p, q) => (q.at || "").localeCompare(p.at || "")); };
+    const d = { ...(a.del || {}) };
+    for (const [k, v] of Object.entries(b.del || {})) if (!d[k] || v > d[k]) d[k] = v;
+    const del = Object.fromEntries(Object.keys(d).sort().map(k => [k, d[k]]));
+    const pick = (xs, ys) => { const m = new Map(); [...(xs || []), ...(ys || [])].map(upgrade).forEach(x => { if (del[x.id] && del[x.id] >= x.mod) return; const cur = m.get(x.id); if (!cur || wins(x, cur)) m.set(x.id, x); }); return [...m.values()].sort((p, q) => (q.at || "").localeCompare(p.at || "") || String(p.id).localeCompare(String(q.id))); };
     return { v: 1, routes: pick(a.routes, b.routes), favs: pick(a.favs, b.favs), del };
   }
-  let pulling = false, pushTimer = null;
+  // dirty: ci sono modifiche locali non ancora mandate. conn: cambia a ogni collega/scollega, così una risposta vecchia viene scartata.
+  let pulling = false, pushTimer = null, dirty = false, conn = 0;
   async function pull() {
-    if (!syncOn() || !S.codice || pulling || navigator.onLine === false) return;
-    pulling = true; S.syncState = "…"; drawSync();
+    if (!syncOn() || !S.codice || navigator.onLine === false) return;
+    if (pulling) { dirty = true; return; }
+    const codice = S.codice, gen = conn;
+    pulling = true; dirty = false; S.syncState = "…"; drawSync();
     try {
-      const remote = await rpc("leggi", { codice: S.codice });
-      const merged = merge({ routes: S.routes, favs: S.favs, del: S.del }, remote || {});
-      S.routes = merged.routes; S.favs = merged.favs; S.del = merged.del; persist();
-      if (JSON.stringify(merged) !== JSON.stringify({ v: 1, routes: remote.routes || [], favs: remote.favs || [], del: remote.del || {} })) await rpc("scrivi", { codice: S.codice, dati: merged });
+      const remote = (await rpc("leggi", { codice })) || {};
+      if (gen !== conn) return;
+      let merged = merge({ routes: S.routes, favs: S.favs, del: S.del }, remote);
+      if (JSON.stringify(merged) !== JSON.stringify(merge(remote, {}))) {
+        const res = await rpc("scrivi", { codice, dati: merged });
+        if (gen !== conn) return;
+        if (res && typeof res === "object" && res.routes) merged = res; // il database unisce e restituisce il risultato
+      }
+      // Unione con lo stato ATTUALE (non con l'istantanea inviata): una modifica fatta nel frattempo resta, ed è ancora "dirty".
+      merged = merge({ routes: S.routes, favs: S.favs, del: S.del }, merged);
+      S.routes = merged.routes; S.favs = merged.favs; S.del = merged.del; const wasDirty = dirty; persist(); dirty = wasDirty;
       S.syncState = "ok"; S.syncAt = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
       if (S.savedId && !S.routes.find(x => x.id === S.savedId)) S.savedId = null;
       drawRoutes(); drawFavs(); drawSaved(); drawEnds(); drawResult(); drawBar();
-    } catch { S.syncState = "err"; }
-    pulling = false; drawSync();
+    } catch { if (gen === conn) S.syncState = "err"; }
+    finally { pulling = false; drawSync(); if (dirty && gen === conn && S.codice) push(); }
   }
   function push() { if (!syncOn() || !S.codice) return; clearTimeout(pushTimer); pushTimer = setTimeout(pull, 700); }
   const makeCodice = () => { const a = "abcdefghjkmnpqrstuvwxyz23456789", b = new Uint8Array(20); crypto.getRandomValues(b); const s = [...b].map(x => a[x % a.length]).join(""); return `${s.slice(0, 5)}-${s.slice(5, 10)}-${s.slice(10, 15)}-${s.slice(15, 20)}`; };
@@ -739,7 +744,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     box.innerHTML = `<div class="card stack"><span class="lbl-s">Codice famiglia</span><b class="code">${esc(S.codice)}</b>
       <div class="row">${st}<button class="btn small" type="button" id="sync-copy">Copia</button><button class="btn small" type="button" id="sync-now">Aggiorna</button><button class="btn small danger" type="button" id="sync-off">Scollega</button></div></div>`;
   }
-  function setCodice(c) { S.codice = c; LS.set("mappa-codice", c); S.syncState = ""; drawSync(); pull(); }
+  function setCodice(c) { conn++; S.codice = c; LS.set("mappa-codice", c); S.syncState = ""; drawSync(); if (c) { dirty = true; pull(); } }
 
   /* ---------- Link e copia ---------- */
   async function copy(text) {
@@ -792,7 +797,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (el.id === "pick-del") { clearStop(S.pick.stop); return; }
     if (el.id === "pick-x") { S.pick = null; drawPick(); return; }
     if (el.id === "gps-slot") { try { toast("Cerco la tua posizione…"); const p = await myPosition(); if (S.slot !== null) setStop(S.slot, p); else { map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15)); setPick(p); } toast(p.acc > 500 ? `Posizione approssimativa (${accText(p.acc)}): su PC viene dalla rete, non dal GPS` : `Precisione ${accText(p.acc)}`); } catch { toast("Posizione non disponibile: controlla i permessi del browser"); } return; }
-    if (el.id === "swap") { if (S.pts.length < 2) return; S.pts.reverse(); S.savedId = null; S.route = null; layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); return; }
+    if (el.id === "swap") { if (S.pts.length < 2) return; S.pts.reverse(); S.savedId = null; S.route = null; S.pick = null; drawPick(); layers.route.clearLayers(); drawStops(); drawEnds(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); return; }
     if (el.id === "save-route") { saveRoute(); return; }
     if (el.id === "new-route") { newRoute(); return; }
     if (el.id === "copy-route") { const it = S.routes.find(x => x.id === S.savedId); if (it) copy(routeLink(it)); return; }
@@ -820,7 +825,7 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (el.id === "fs") { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { toast("Schermo intero non disponibile qui"); } }
   });
   document.addEventListener("fullscreenchange", () => setTimeout(() => map.invalidateSize(), 150));
-  document.addEventListener("input", e => { if (e.target.id === "q") { $("q-clear").hidden = !e.target.value; suggest(e.target.value); } if (e.target.id === "fname" && S.favForm) S.favForm.name = e.target.value; });
+  document.addEventListener("input", e => { if (e.target.id === "q") { $("q-clear").hidden = !e.target.value; suggest(e.target.value); } if (e.target.id === "fname" && S.favForm) S.favForm.name = e.target.value; if (e.target.id === "rname") S.draftName = e.target.value; });
   document.addEventListener("keydown", e => {
     if (e.target.id === "q" && e.key === "Enter") { e.preventDefault(); clearTimeout(typeTimer); search(e.target.value); }
     else if (e.target.id === "q" && e.key === "Escape") { $("res").hidden = true; }
@@ -834,6 +839,17 @@ dialog::backdrop { background: rgba(30, 20, 10, .55); }
     if (sel.tagName === "SELECT" && sel.closest("#panel")) { if (MODES[sel.value] && sel.value !== S.mode) { S.mode = sel.value; LS.set("mappa-mezzo", S.mode); S.savedId = null; S.route = null; layers.route.clearLayers(); drawResult(); drawRoutes(); drawSaved(); drawBar(); routeIfReady(); } }
   });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(); });
+  window.addEventListener("storage", e => {
+    if (e.key && !["mappa-percorsi", "mappa-preferiti", "mappa-del"].includes(e.key)) return;
+    // Un'altra scheda ha salvato: unisco (non sostituisco), così nessuna delle due perde il suo salvataggio.
+    const disk = { routes: LS.get("mappa-percorsi", []), favs: LS.get("mappa-preferiti", []), del: LS.get("mappa-del", {}) };
+    const m = merge({ routes: S.routes, favs: S.favs, del: S.del }, disk);
+    const changed = JSON.stringify(m) !== JSON.stringify(merge(disk, {}));
+    S.routes = m.routes; S.favs = m.favs; S.del = m.del;
+    if (changed) { const wasDirty = dirty; persist(); dirty = wasDirty || true; push(); } // riscrivo solo se l'unione aggiunge qualcosa: niente rimbalzi
+    if (S.savedId && !S.routes.find(x => x.id === S.savedId)) S.savedId = null;
+    drawRoutes(); drawFavs(); drawSaved(); drawEnds(); drawResult(); drawBar();
+  });
   $("cal").addEventListener("close", () => { S.cal = null; });
   window.addEventListener("hashchange", applyHash);
 
