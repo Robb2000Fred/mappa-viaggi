@@ -92,4 +92,4 @@ di Crea/Scollega quando il browser non salva, e un percorso arrivato senza tracc
 Terza ispezione (autorizzata da Fred come giro extra): **APPROVED, nessun rilievo**. Tutto il codice online è stato ispezionato da Codex in sessione nuova.
 
 **Stato dichiarato.** Sicurezza: nessun rilievo aperto. Funzionamento: nessun rilievo aperto. Non provato da nessuno: memoria del browser piena,
-migrazione dei tasselli interrotta, lettore di schermo. Da fare a mano: Run di `supabase.sql` nell'SQL Editor (finché non è fatto, il database sovrascrive invece di unire).
+migrazione dei tasselli interrotta, lettore di schermo. `supabase.sql` applicato da Fred l'8 nov 2026 e verificato dall'esterno: due dispositivi che scrivono insieme non si sovrascrivono più (R01 chiuso).
